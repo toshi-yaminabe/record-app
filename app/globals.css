@@ -4,28 +4,720 @@
   box-sizing: border-box;
 }
 
+:root {
+  --bg-dark: #0f0f1a;
+  --bg-card: #1a1a2e;
+  --bg-card-hover: #252542;
+  --accent-purple: #9c27b0;
+  --accent-blue: #2196f3;
+  --accent-green: #00e676;
+  --accent-orange: #ff9800;
+  --text-primary: #ffffff;
+  --text-secondary: #a0a0b0;
+  --border-color: #2a2a4a;
+}
+
 html {
   scroll-behavior: smooth;
 }
 
 body {
-  background-color: #ffffff;
-  color: #000000;
-  font-family: system-ui, -apple-system, sans-serif;
+  background: linear-gradient(135deg, var(--bg-dark) 0%, #1a1025 100%);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ダッシュボード */
+.dashboard {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+/* ヘッダー */
+.header {
+  text-align: center;
+  padding: 2rem 0;
+  margin-bottom: 1rem;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.logo-icon {
+  font-size: 2.5rem;
+}
+
+.logo h1 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  background: linear-gradient(90deg, #fff, var(--accent-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tagline {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  text-align: left;
+}
+
+/* 進捗リング */
+.progress-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.progress-ring {
+  position: relative;
+  width: 60px;
+  height: 60px;
+}
+
+.progress-ring svg {
+  transform: rotate(-90deg);
+  width: 100%;
+  height: 100%;
+}
+
+.progress-bg {
+  fill: none;
+  stroke: var(--border-color);
+  stroke-width: 3;
+}
+
+.progress-fill {
+  fill: none;
+  stroke: var(--accent-green);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.5s ease;
+}
+
+.progress-ring .progress-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent-green);
+}
+
+.progress-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* タブナビゲーション */
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  background: var(--bg-card);
+  padding: 0.5rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.tab {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.tab:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.tab.active {
+  background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+  color: white;
+  font-weight: 600;
+}
+
+.badge {
+  background: var(--accent-green);
+  color: var(--bg-dark);
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+/* セクション */
+.flow-section {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.flow-section.future {
+  opacity: 0.7;
+  border-style: dashed;
+}
+
+.flow-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  margin-bottom: 1.5rem;
+  color: var(--text-primary);
+}
+
+.section-icon {
+  font-size: 1.2rem;
+}
+
+.section-badge {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  margin-left: auto;
+  font-weight: 600;
+}
+
+.section-badge.completed {
+  background: rgba(0, 230, 118, 0.2);
+  color: var(--accent-green);
+}
+
+.section-badge.pending {
+  background: rgba(255, 152, 0, 0.2);
+  color: var(--accent-orange);
+}
+
+/* フローノード */
+.flow-container {
+  overflow-x: auto;
+  padding: 1rem 0;
+}
+
+.flow-nodes {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-width: max-content;
+}
+
+.flow-node-wrapper {
+  display: flex;
+  align-items: flex-start;
+}
+
+/* アーキテクチャノード */
+.arch-node {
+  background: var(--bg-card-hover);
+  border: 2px solid var(--node-color, var(--border-color));
+  border-radius: 12px;
+  padding: 1rem;
+  min-width: 160px;
+  max-width: 200px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.arch-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--node-color, var(--accent-purple));
+  border-radius: 10px 10px 0 0;
+}
+
+.arch-node:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.arch-node.completed {
+  border-color: var(--node-color);
+}
+
+.arch-node.pending {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.node-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.node-icon {
+  font-size: 1.5rem;
+}
+
+.node-info h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.1rem;
+}
+
+.node-status {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.node-status.completed {
+  background: rgba(0, 230, 118, 0.2);
+  color: var(--accent-green);
+}
+
+.node-status.pending {
+  background: rgba(255, 152, 0, 0.2);
+  color: var(--accent-orange);
+}
+
+.node-details {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.node-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+.feature-tag {
+  font-size: 0.65rem;
+  background: rgba(156, 39, 176, 0.2);
+  color: #ce93d8;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.node-files {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.file-item .file-icon {
+  font-size: 0.8rem;
+}
+
+.file-check {
+  color: var(--accent-green);
+  margin-left: auto;
+}
+
+/* 接続線 */
+.flow-connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 0.5rem;
+  align-self: center;
+  margin-top: 1.5rem;
+}
+
+.connector-line {
+  width: 40px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue));
+  position: relative;
+}
+
+.connector-line::after {
+  content: '▶';
+  position: absolute;
+  right: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.6rem;
+  color: var(--accent-blue);
+}
+
+.connector-label {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+  white-space: nowrap;
+}
+
+/* Future nodes */
+.future-nodes {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.future-nodes .arch-node {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* ファイル構成 */
+.file-summary {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.file-summary h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.file-card {
+  background: var(--bg-card-hover);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.file-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(156, 39, 176, 0.1);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.file-card-header span {
+  font-size: 1.2rem;
+}
+
+.file-card-header h3 {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.file-tree {
+  padding: 1rem;
+}
+
+.file-tree code {
+  display: block;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  white-space: pre;
+}
+
+/* インストールビュー */
+.install-view {
+  display: grid;
+  gap: 1rem;
+}
+
+.install-card {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.install-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.install-icon {
+  font-size: 2rem;
+  width: 50px;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+  border-radius: 12px;
+}
+
+.install-header h3 {
+  font-size: 1rem;
+  margin-bottom: 0.1rem;
+}
+
+.install-header p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.install-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.step-num {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-purple);
+  color: white;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.code-block {
+  background: #0d0d14;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  overflow-x: auto;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #a5d6ff;
+  margin: 0;
+}
+
+.install-note {
+  font-size: 0.8rem;
+  color: var(--accent-orange);
+  margin-top: 0.75rem;
+}
+
+/* 履歴ビュー */
+.history-view {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.history-header h2 {
+  font-size: 1.1rem;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.refresh-btn:hover {
+  background: var(--accent-purple);
+  border-color: var(--accent-purple);
+}
+
+.loading-state,
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-secondary);
+}
+
+.empty-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.empty-hint {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  margin-top: 0.5rem;
+}
+
+.transcript-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.transcript-card {
+  background: var(--bg-card-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.transcript-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+}
+
+.transcript-id {
+  background: var(--accent-purple);
+  color: white;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.transcript-session {
+  font-family: monospace;
+  color: var(--text-secondary);
+}
+
+.transcript-date {
+  margin-left: auto;
+  color: var(--text-secondary);
+}
+
+.transcript-text {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
+/* フッター */
+.footer {
+  text-align: center;
+  padding: 2rem 0 1rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  opacity: 0.6;
 }
 
-h1 {
-  margin-bottom: 1rem;
-  font-size: 2rem;
-}
+/* レスポンシブ */
+@media (max-width: 768px) {
+  .dashboard {
+    padding: 1rem;
+  }
 
-p {
-  margin-bottom: 1rem;
+  .header-content {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .tagline {
+    text-align: center;
+  }
+
+  .tabs {
+    flex-wrap: wrap;
+  }
+
+  .tab {
+    flex: none;
+    width: calc(50% - 0.25rem);
+  }
+
+  .tab:last-child {
+    width: 100%;
+  }
+
+  .flow-nodes {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .flow-node-wrapper {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .arch-node {
+    max-width: 100%;
+    min-width: auto;
+  }
+
+  .flow-connector {
+    padding: 0.5rem 0;
+    margin-top: 0;
+  }
+
+  .connector-line {
+    width: 2px;
+    height: 30px;
+  }
+
+  .connector-line::after {
+    content: '▼';
+    right: 50%;
+    top: auto;
+    bottom: -10px;
+    transform: translateX(50%);
+  }
+
+  .file-grid {
+    grid-template-columns: 1fr;
+  }
 }
