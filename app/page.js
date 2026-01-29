@@ -198,6 +198,41 @@ export default function Dashboard() {
         <p className="tagline">音声録音 → AI文字起こし → クラウド保存</p>
       </header>
 
+      {/* ダウンロードセクション */}
+      <section className="download-section">
+        <div className="download-card">
+          <div className="download-info">
+            <div className="download-icon">📱</div>
+            <div>
+              <h2>Androidアプリをダウンロード</h2>
+              <p>録音して文字起こしを始めましょう</p>
+            </div>
+          </div>
+          <a
+            href="https://github.com/toshi-yaminabe/record-app/releases/latest/download/app-release.apk"
+            className="download-btn"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <span className="download-btn-icon">⬇️</span>
+            APKダウンロード
+          </a>
+        </div>
+        <div className="download-help">
+          <p>
+            <strong>インストール方法:</strong> ダウンロード → ファイルを開く → 「提供元不明アプリ」を許可 → インストール
+          </p>
+          <a
+            href="https://github.com/toshi-yaminabe/record-app/releases"
+            className="releases-link"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            全てのリリースを見る →
+          </a>
+        </div>
+      </section>
+
       {/* タブナビゲーション */}
       <nav className="tabs">
         <button
@@ -210,7 +245,7 @@ export default function Dashboard() {
           className={`tab ${activeTab === 'install' ? 'active' : ''}`}
           onClick={() => setActiveTab('install')}
         >
-          📲 インストール
+          📲 開発者向け
         </button>
         <button
           className={`tab ${activeTab === 'history' ? 'active' : ''}`}

@@ -124,6 +124,101 @@ body {
   color: var(--text-secondary);
 }
 
+/* ダウンロードセクション */
+.download-section {
+  margin-bottom: 1.5rem;
+}
+
+.download-card {
+  background: linear-gradient(135deg, #1a237e 0%, #7b1fa2 100%);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.download-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.download-icon {
+  font-size: 2.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.75rem;
+  border-radius: 12px;
+}
+
+.download-info h2 {
+  font-size: 1.2rem;
+  margin-bottom: 0.25rem;
+}
+
+.download-info p {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  background: var(--accent-green);
+  color: #000;
+  text-decoration: none;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  transition: all 0.2s;
+  box-shadow: 0 4px 15px rgba(0, 230, 118, 0.3);
+}
+
+.download-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 230, 118, 0.4);
+}
+
+.download-btn-icon {
+  font-size: 1.3rem;
+}
+
+.download-help {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0 0 16px 16px;
+  margin-top: -8px;
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.download-help p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.download-help strong {
+  color: var(--text-primary);
+}
+
+.releases-link {
+  color: var(--accent-blue);
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.releases-link:hover {
+  text-decoration: underline;
+}
+
 /* タブナビゲーション */
 .tabs {
   display: flex;
@@ -668,6 +763,25 @@ body {
   }
 
   .tagline {
+    text-align: center;
+  }
+
+  .download-card {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .download-info {
+    flex-direction: column;
+  }
+
+  .download-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .download-help {
+    flex-direction: column;
     text-align: center;
   }
 
