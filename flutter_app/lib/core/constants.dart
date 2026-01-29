@@ -5,17 +5,19 @@ class AppConstants {
   static const int sampleRate = 16000;
   static const int bitRate = 64000;
 
-  // オフラインキュー
+  // オフラインキュー（Phase 3で使用）
   static const int maxQueueSizeMB = 500;
   static const int warningThresholdMinutes = 20;
 
-  // リトライ
+  // リトライ（Phase 4で使用）
   static const int maxRetryCount = 2;
 }
 
-/// Supabase設定
-/// TODO: 環境変数または設定ファイルから読み込む
-class SupabaseConfig {
-  static const String url = 'YOUR_SUPABASE_URL';
-  static const String anonKey = 'YOUR_SUPABASE_ANON_KEY';
+/// API設定
+class ApiConfig {
+  // 開発環境: ローカルサーバー
+  // 本番環境: デプロイ先URLに変更
+  static const String baseUrl = 'http://10.0.2.2:3000'; // Android Emulator用
+  // static const String baseUrl = 'http://localhost:3000'; // iOS Simulator用
+  // static const String baseUrl = 'https://your-app.vercel.app'; // 本番用
 }

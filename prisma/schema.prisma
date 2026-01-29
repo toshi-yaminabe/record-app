@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Transcript {
+  id        String   @id @default(cuid())
+  deviceId  String   @map("device_id")
+  sessionId String   @map("session_id")
+  segmentNo Int      @map("segment_no")
+  startAt   DateTime @map("start_at")
+  endAt     DateTime @map("end_at")
+  text      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([deviceId])
+  @@index([sessionId])
+  @@map("transcripts")
+}
