@@ -27,6 +27,7 @@ final deviceIdProvider = Provider<String>((ref) {
 /// 録音状態
 class RecordingState {
   final bool isRecording;
+  final bool isTranscribing; // 文字起こし処理中フラグ
   final String? sessionId;
   final Duration elapsed;
   final int segmentCount;
@@ -36,6 +37,7 @@ class RecordingState {
 
   const RecordingState({
     this.isRecording = false,
+    this.isTranscribing = false,
     this.sessionId,
     this.elapsed = Duration.zero,
     this.segmentCount = 0,
@@ -46,6 +48,7 @@ class RecordingState {
 
   RecordingState copyWith({
     bool? isRecording,
+    bool? isTranscribing,
     String? sessionId,
     Duration? elapsed,
     int? segmentCount,
@@ -55,6 +58,7 @@ class RecordingState {
   }) {
     return RecordingState(
       isRecording: isRecording ?? this.isRecording,
+      isTranscribing: isTranscribing ?? this.isTranscribing,
       sessionId: sessionId ?? this.sessionId,
       elapsed: elapsed ?? this.elapsed,
       segmentCount: segmentCount ?? this.segmentCount,
@@ -127,6 +131,9 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
+    // 処理中フラグをON
+    state = state.copyWith(isTranscribing: true);
+
     try {
       final result = await _transcribeService.transcribe(
         filePath: filePath,
@@ -144,12 +151,16 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
       }
 
       state = state.copyWith(
+        isTranscribing: false,
         transcribedCount: state.transcribedCount + 1,
         lastTranscript: result.text,
       );
     } catch (e) {
       // エラー時はファイルを保持（後でリトライ用）
-      state = state.copyWith(error: '文字起こし失敗: $e');
+      state = state.copyWith(
+        isTranscribing: false,
+        error: '文字起こし失敗: $e',
+      );
     }
   }
 

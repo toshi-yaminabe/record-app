@@ -99,13 +99,25 @@ class HomePage extends ConsumerWidget {
 
                 // 状態テキスト
                 Text(
-                  recordingState.isRecording ? '録音中...' : 'タップして録音開始',
+                  recordingState.isRecording
+                      ? '録音中...'
+                      : recordingState.isTranscribing
+                          ? '文字起こし中...'
+                          : 'タップして録音開始',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: recordingState.isRecording
                             ? Colors.red
-                            : Theme.of(context).colorScheme.onSurface,
+                            : recordingState.isTranscribing
+                                ? Colors.orange
+                                : Theme.of(context).colorScheme.onSurface,
                       ),
                 ),
+
+                // 文字起こし中のインジケーター
+                if (recordingState.isTranscribing) ...[
+                  const SizedBox(height: 16),
+                  const CircularProgressIndicator(),
+                ],
 
                 // 最新の文字起こし結果
                 if (recordingState.lastTranscript != null) ...[

@@ -1,7 +1,8 @@
 /// アプリ定数
 class AppConstants {
   // 録音設定
-  static const int segmentDurationMinutes = 10;
+  // MVPでは60分に設定（セグメント分割を実質無効化）
+  static const int segmentDurationMinutes = 60;
   static const int sampleRate = 16000;
   static const int bitRate = 64000;
 

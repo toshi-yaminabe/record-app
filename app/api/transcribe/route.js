@@ -1,6 +1,16 @@
 import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { transcribeAudio } from '@/lib/gemini'
+
+// Prismaはオプショナル（DB保存が必要な場合のみ）
+let prisma = null
+try {
+  if (process.env.DATABASE_URL) {
+    const { prisma: prismaClient } = await import('@/lib/prisma')
+    prisma = prismaClient
+  }
+} catch (e) {
+  console.log('Prisma not available, running without DB')
+}
 
 export async function POST(request) {
   try {
@@ -26,21 +36,29 @@ export async function POST(request) {
     // Gemini Flashで文字起こし
     const text = await transcribeAudio(buffer, audioFile.type || 'audio/mp4')
 
-    // DBに保存
-    const transcript = await prisma.transcript.create({
-      data: {
-        deviceId,
-        sessionId,
-        segmentNo,
-        startAt: startAt ? new Date(startAt) : new Date(),
-        endAt: endAt ? new Date(endAt) : new Date(),
-        text
+    // DBが利用可能な場合のみ保存
+    let transcriptId = `temp-${Date.now()}`
+    if (prisma) {
+      try {
+        const transcript = await prisma.transcript.create({
+          data: {
+            deviceId,
+            sessionId,
+            segmentNo,
+            startAt: startAt ? new Date(startAt) : new Date(),
+            endAt: endAt ? new Date(endAt) : new Date(),
+            text
+          }
+        })
+        transcriptId = transcript.id
+      } catch (dbError) {
+        console.log('DB save skipped:', dbError.message)
       }
-    })
+    }
 
     return NextResponse.json({
       success: true,
-      transcriptId: transcript.id,
+      transcriptId,
       text
     })
   } catch (error) {
@@ -55,6 +73,14 @@ export async function POST(request) {
 // 文字起こし履歴を取得
 export async function GET(request) {
   try {
+    // DBが利用できない場合は空配列を返す
+    if (!prisma) {
+      return NextResponse.json({
+        transcripts: [],
+        message: 'Database not configured. Set DATABASE_URL to enable history.'
+      })
+    }
+
     const { searchParams } = new URL(request.url)
     const deviceId = searchParams.get('deviceId')
     const sessionId = searchParams.get('sessionId')
