@@ -47,10 +47,16 @@ npm run lint
 
 ## Project Structure
 
+### Current Implementation
 - `/app` - Next.js App Router pages and layouts
 - `/public` - Static assets
 - `next.config.js` - Next.js configuration
 - `jsconfig.json` - JavaScript configuration with path aliases
+
+### Future Requirements
+- `/future/requirements/` - **将来実装予定の要件定義書（現在のスコープ外）**
+  - これらは参考用途で、現在のプロジェクト要件ではありません
+  - 実装時期は別途調整が必要です
 
 ## Learn More
 
