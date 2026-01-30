@@ -37,11 +37,11 @@
             </intent-filter>
         </activity>
 
-        <!-- バックグラウンド録音サービス -->
-        <service
+        <!-- TODO: Phase 2でflutter_background_serviceを追加したら有効化 -->
+        <!-- <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
             android:foregroundServiceType="microphone"
-            android:exported="false"/>
+            android:exported="false"/> -->
 
         <meta-data
             android:name="flutterEmbedding"
