@@ -14,7 +14,7 @@ model Transcript {
   segmentNo Int      @map("segment_no")
   startAt   DateTime @map("start_at")
   endAt     DateTime @map("end_at")
-  text      String   @db.Text
+  text      String
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([deviceId])

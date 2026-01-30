@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(if [ -d \"node_modules\" ])",
+      "Bash(then echo \"node_modules exists\")",
+      "Bash(else npm install)",
+      "Bash(fi)",
+      "Bash(npm run dev:*)",
+      "Bash(psql:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(gh run list:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git push:*)",
+      "Bash(winget install:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git config:*)",
+      "Bash(where:*)"
+    ]
+  }
+}
