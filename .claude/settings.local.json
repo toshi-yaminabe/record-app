@@ -20,7 +20,8 @@
       "Bash(dir:*)",
       "Bash(git log:*)",
       "Bash(npm install)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(flutter build:*)"
     ]
   }
 }
