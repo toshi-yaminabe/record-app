@@ -14,7 +14,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # 録音
-  record: ^5.1.2
+  record: ^5.2.0
 
   # 状態管理
   flutter_riverpod: ^2.6.1
