@@ -82,7 +82,7 @@ class HomePage extends ConsumerWidget {
                           color: (recordingState.isRecording
                                   ? Colors.red
                                   : Theme.of(context).colorScheme.primary)
-                              .withValues(alpha: 0.4),
+                              .withOpacity(0.4),
                           blurRadius: 20,
                           spreadRadius: 5,
                         ),
@@ -122,7 +122,7 @@ class HomePage extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: Theme.of(context)
                           .colorScheme
-                          .surfaceContainerHighest,
+                          .surfaceVariant,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
