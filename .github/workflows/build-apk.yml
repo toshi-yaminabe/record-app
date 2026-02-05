@@ -31,9 +31,9 @@ jobs:
         working-directory: flutter_app
         run: flutter pub get
 
-      - name: Clean Gradle cache
-        working-directory: flutter_app/android
-        run: ./gradlew clean
+      - name: Clean Flutter build
+        working-directory: flutter_app
+        run: flutter clean
 
       - name: Build APK
         working-directory: flutter_app
