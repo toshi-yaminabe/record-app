@@ -1,6 +1,14 @@
 # record-app
 
-A Next.js web application for recording.
+Flutter モバイルアプリと Next.js ウェブダッシュボードを備えた、フルスタック音声録音・AI文字起こしアプリケーション。
+
+## 📱 ダウンロード
+
+**[⬇️ 最新版をダウンロード](https://github.com/toshi-yaminabe/record-app/releases)**
+
+Android デバイス向けの最新版 APK をダウンロードできます。
+
+---
 
 ## Getting Started
 
