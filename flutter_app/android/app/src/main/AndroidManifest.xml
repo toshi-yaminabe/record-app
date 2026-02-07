@@ -5,6 +5,7 @@
     <!-- バックグラウンドサービス権限 -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
 
     <!-- 通知権限 (Android 13+) -->
@@ -37,11 +38,11 @@
             </intent-filter>
         </activity>
 
-        <!-- TODO: Phase 2でflutter_background_serviceを追加したら有効化 -->
-        <!-- <service
+        <!-- Foreground Service (Phase 2以降で有効化) -->
+        <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
-            android:foregroundServiceType="microphone"
-            android:exported="false"/> -->
+            android:foregroundServiceType="microphone|dataSync"
+            android:exported="false"/>
 
         <meta-data
             android:name="flutterEmbedding"

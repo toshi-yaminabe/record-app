@@ -21,7 +21,20 @@
       "Bash(git log:*)",
       "Bash(npm install)",
       "Bash(npm run build:*)",
-      "Bash(flutter build:*)"
+      "Bash(flutter build:*)",
+      "Bash(cmd /c \"where flutter 2>nul || echo not found\")",
+      "Bash(powershell -Command:*)",
+      "Bash(export PATH=\"$PATH:/c/flutter/bin\")",
+      "Bash(flutter --version:*)",
+      "Bash(flutter doctor:*)",
+      "Bash(export:*)",
+      "Bash(\"$ANDROID_HOME/platform-tools/adb.exe\" version)",
+      "Bash(flutter config:*)",
+      "Bash(\"C:\\\\Program Files\\\\GitHub CLI\\\\gh.exe\" release list --repo toshi-yaminabe/record-app --limit 5)",
+      "Bash(C:flutterbinflutter --version)",
+      "Bash(java:*)",
+      "Bash(echo:*)",
+      "Bash(\"C:\\\\Program Files\\\\Android\\\\Android Studio\\\\jbr\\\\bin\\\\java.exe\" -version)"
     ]
   }
 }

@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants.dart';
 import '../../services/recording/recording_service.dart';
 import '../../services/transcribe/transcribe_service.dart';
+import '../../services/offline/offline_queue_service.dart';
 
 /// 録音サービスプロバイダー
 final recordingServiceProvider = Provider<RecordingService>((ref) {
@@ -18,10 +20,22 @@ final transcribeServiceProvider = Provider<TranscribeService>((ref) {
   return TranscribeService(baseUrl: ApiConfig.baseUrl);
 });
 
-/// デバイスIDプロバイダー（シンプルにUUIDを使用、本番ではshared_preferencesで永続化）
-final deviceIdProvider = Provider<String>((ref) {
-  // TODO: shared_preferencesで永続化
-  return const Uuid().v4();
+/// オフラインキューサービスプロバイダー
+final offlineQueueServiceProvider = Provider<OfflineQueueService>((ref) {
+  return OfflineQueueService();
+});
+
+/// デバイスIDプロバイダー（shared_preferencesで永続化）
+final deviceIdProvider = FutureProvider<String>((ref) async {
+  final prefs = await SharedPreferences.getInstance();
+  String? deviceId = prefs.getString('device_id');
+
+  if (deviceId == null) {
+    deviceId = const Uuid().v4();
+    await prefs.setString('device_id', deviceId);
+  }
+
+  return deviceId;
 });
 
 /// 録音状態
@@ -47,6 +61,7 @@ class RecordingState {
   RecordingState copyWith({
     bool? isRecording,
     String? sessionId,
+    bool clearSessionId = false,
     Duration? elapsed,
     int? segmentCount,
     int? transcribedCount,
@@ -55,7 +70,7 @@ class RecordingState {
   }) {
     return RecordingState(
       isRecording: isRecording ?? this.isRecording,
-      sessionId: sessionId ?? this.sessionId,
+      sessionId: clearSessionId ? null : (sessionId ?? this.sessionId),
       elapsed: elapsed ?? this.elapsed,
       segmentCount: segmentCount ?? this.segmentCount,
       transcribedCount: transcribedCount ?? this.transcribedCount,
@@ -69,6 +84,7 @@ class RecordingState {
 class RecordingNotifier extends StateNotifier<RecordingState> {
   final RecordingService _recordingService;
   final TranscribeService _transcribeService;
+  final OfflineQueueService _offlineQueueService;
   final String _deviceId;
   StreamSubscription? _eventSubscription;
   Timer? _elapsedTimer;
@@ -77,6 +93,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
   RecordingNotifier(
     this._recordingService,
     this._transcribeService,
+    this._offlineQueueService,
     this._deviceId,
   ) : super(const RecordingState()) {
     _eventSubscription = _recordingService.events.listen(_onEvent);
@@ -98,6 +115,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
         state = state.copyWith(
           isRecording: false,
           elapsed: Duration.zero,
+          clearSessionId: true,
         );
       case SegmentCompleted(
           :final sessionId,
@@ -133,8 +151,8 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
         deviceId: _deviceId,
         sessionId: sessionId,
         segmentNo: segmentNo,
-        startAt: startTime,
-        endAt: endTime,
+        startAt: startTime.toUtc(),
+        endAt: endTime.toUtc(),
       );
 
       // 文字起こし成功 → ローカルファイル削除
@@ -148,8 +166,20 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
         lastTranscript: result.text,
       );
     } catch (e) {
-      // エラー時はファイルを保持（後でリトライ用）
-      state = state.copyWith(error: '文字起こし失敗: $e');
+      // エラー時はファイルを保持し、オフラインキューに追加
+      await _offlineQueueService.enqueue(
+        endpoint: '/api/segments/transcribe',
+        method: 'POST',
+        payload: {
+          'deviceId': _deviceId,
+          'sessionId': sessionId,
+          'segmentNo': segmentNo,
+          'startAt': startTime.toUtc().toIso8601String(),
+          'endAt': endTime.toUtc().toIso8601String(),
+          'filePath': filePath, // 後でアップロードするためパスを保持
+        },
+      );
+      state = state.copyWith(error: '文字起こし失敗（キューに追加）: $e');
     }
   }
 
@@ -198,6 +228,20 @@ final recordingNotifierProvider =
     StateNotifierProvider<RecordingNotifier, RecordingState>((ref) {
   final recordingService = ref.watch(recordingServiceProvider);
   final transcribeService = ref.watch(transcribeServiceProvider);
-  final deviceId = ref.watch(deviceIdProvider);
-  return RecordingNotifier(recordingService, transcribeService, deviceId);
+  final offlineQueueService = ref.watch(offlineQueueServiceProvider);
+  final deviceIdAsync = ref.watch(deviceIdProvider);
+
+  // デバイスIDが取得できるまで待機
+  final deviceId = deviceIdAsync.when(
+    data: (id) => id,
+    loading: () => 'loading',
+    error: (_, __) => const Uuid().v4(),
+  );
+
+  return RecordingNotifier(
+    recordingService,
+    transcribeService,
+    offlineQueueService,
+    deviceId,
+  );
 });

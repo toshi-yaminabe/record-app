@@ -27,10 +27,19 @@ dependencies:
   # HTTP (文字起こしAPI用)
   http: ^1.2.2
 
-  # TODO: Phase 2以降で追加
+  # 永続化・DB
+  shared_preferences: ^2.3.4
+  sqflite: ^2.4.1
+
+  # ネットワーク監視
+  connectivity_plus: ^6.1.1
+
+  # Phase 2以降で追加
   # flutter_background_service: ^5.0.10  # バックグラウンド録音
   # flutter_local_notifications: ^18.0.1  # 通知
-  # connectivity_plus: ^6.1.1  # ネットワーク監視
+
+dependency_overrides:
+  record_linux: ^1.3.0
 
 dev_dependencies:
   flutter_test:

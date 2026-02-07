@@ -29,14 +29,12 @@ body {
   min-height: 100vh;
 }
 
-/* ダッシュボード */
 .dashboard {
   max-width: 1100px;
   margin: 0 auto;
   padding: 1.5rem;
 }
 
-/* ヘッダー */
 .header {
   text-align: center;
   padding: 2rem 0;
@@ -75,7 +73,6 @@ body {
   text-align: left;
 }
 
-/* 進捗リング */
 .progress-badge {
   display: flex;
   flex-direction: column;
@@ -124,7 +121,6 @@ body {
   color: var(--text-secondary);
 }
 
-/* ダウンロードセクション */
 .download-section {
   margin-bottom: 1.5rem;
 }
@@ -219,7 +215,6 @@ body {
   text-decoration: underline;
 }
 
-/* タブナビゲーション */
 .tabs {
   display: flex;
   gap: 0.5rem;
@@ -228,16 +223,18 @@ body {
   padding: 0.5rem;
   border-radius: 12px;
   border: 1px solid var(--border-color);
+  flex-wrap: wrap;
 }
 
 .tab {
   flex: 1;
+  min-width: 100px;
   padding: 0.75rem 1rem;
   background: transparent;
   border: none;
   border-radius: 8px;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -266,7 +263,6 @@ body {
   font-weight: 700;
 }
 
-/* セクション */
 .flow-section {
   background: var(--bg-card);
   border-radius: 16px;
@@ -311,7 +307,6 @@ body {
   color: var(--accent-orange);
 }
 
-/* フローノード */
 .flow-container {
   overflow-x: auto;
   padding: 1rem 0;
@@ -329,7 +324,6 @@ body {
   align-items: flex-start;
 }
 
-/* アーキテクチャノード */
 .arch-node {
   background: var(--bg-card-hover);
   border: 2px solid var(--node-color, var(--border-color));
@@ -443,7 +437,6 @@ body {
   margin-left: auto;
 }
 
-/* 接続線 */
 .flow-connector {
   display: flex;
   flex-direction: column;
@@ -477,7 +470,6 @@ body {
   white-space: nowrap;
 }
 
-/* Future nodes */
 .future-nodes {
   display: flex;
   gap: 1rem;
@@ -489,7 +481,6 @@ body {
   min-width: 200px;
 }
 
-/* ファイル構成 */
 .file-summary {
   background: var(--bg-card);
   border-radius: 16px;
@@ -550,7 +541,6 @@ body {
   white-space: pre;
 }
 
-/* インストールビュー */
 .install-view {
   display: grid;
   gap: 1rem;
@@ -639,7 +629,6 @@ body {
   margin-top: 0.75rem;
 }
 
-/* 履歴ビュー */
 .history-view {
   background: var(--bg-card);
   border-radius: 16px;
@@ -742,7 +731,6 @@ body {
   line-height: 1.5;
 }
 
-/* フッター */
 .footer {
   text-align: center;
   padding: 2rem 0 1rem;
@@ -751,7 +739,6 @@ body {
   opacity: 0.6;
 }
 
-/* レスポンシブ */
 @media (max-width: 768px) {
   .dashboard {
     padding: 1rem;
@@ -786,16 +773,14 @@ body {
   }
 
   .tabs {
-    flex-wrap: wrap;
+    gap: 0.25rem;
   }
 
   .tab {
     flex: none;
-    width: calc(50% - 0.25rem);
-  }
-
-  .tab:last-child {
-    width: 100%;
+    min-width: 80px;
+    font-size: 0.75rem;
+    padding: 0.6rem 0.5rem;
   }
 
   .flow-nodes {

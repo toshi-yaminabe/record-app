@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ========================================
+// 既存モデル（後方互換のためそのまま維持）
+// ========================================
+
 model Transcript {
   id        String   @id @default(cuid())
   deviceId  String   @map("device_id")
@@ -20,4 +24,226 @@ model Transcript {
   @@index([deviceId])
   @@index([sessionId])
   @@map("transcripts")
+}
+
+// ========================================
+// v1.4.1 新規モデル
+// ========================================
+
+/// 分人（Bunjin）- ユーザーの人格ファセット
+model Bunjin {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  slug        String
+  displayName String   @map("display_name")
+  description String   @default("")
+  color       String   @default("#6366f1")
+  icon        String   @default("person")
+  isDefault   Boolean  @default(false) @map("is_default")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  segments  Segment[]
+  tasks     Task[]
+  memories  Memory[]
+
+  @@unique([userId, slug])
+  @@index([userId])
+  @@map("bunjins")
+}
+
+/// ルールツリー（条件分岐で分人を決定）
+model RuleTree {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  name      String   @default("default")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  nodes    RuleTreeNode[]
+  versions PublishedVersion[]
+
+  @@index([userId])
+  @@map("rule_trees")
+}
+
+/// ルールツリーノード（自己参照で親子関係）
+model RuleTreeNode {
+  id         String  @id @default(cuid())
+  ruleTreeId String  @map("rule_tree_id")
+  parentId   String? @map("parent_id")
+  type       String  @default("condition") // "condition" | "bunjin"
+  label      String  @default("")
+  condition  String? // 条件式（時間帯、曜日など）
+  bunjinSlug String? @map("bunjin_slug") // type="bunjin"の場合の分人slug
+  sortOrder  Int     @default(0) @map("sort_order")
+
+  ruleTree RuleTree       @relation(fields: [ruleTreeId], references: [id], onDelete: Cascade)
+  parent   RuleTreeNode?  @relation("NodeParent", fields: [parentId], references: [id], onDelete: Cascade)
+  children RuleTreeNode[] @relation("NodeParent")
+
+  @@index([ruleTreeId])
+  @@index([parentId])
+  @@map("rule_tree_nodes")
+}
+
+/// 公開バージョン（ルールツリーのスナップショット）
+model PublishedVersion {
+  id         String   @id @default(cuid())
+  ruleTreeId String   @map("rule_tree_id")
+  version    Int
+  treeJson   String   @map("tree_json") // JSONスナップショット
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  ruleTree RuleTree  @relation(fields: [ruleTreeId], references: [id], onDelete: Cascade)
+  sessions Session[]
+
+  @@unique([ruleTreeId, version])
+  @@index([ruleTreeId])
+  @@map("published_versions")
+}
+
+/// 録音セッション
+model Session {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  deviceId      String   @map("device_id")
+  status        String   @default("ACTIVE") // "ACTIVE" | "STOPPED"
+  ruleVersionId String?  @map("rule_version_id")
+  startedAt     DateTime @default(now()) @map("started_at")
+  endedAt       DateTime? @map("ended_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  ruleVersion PublishedVersion? @relation(fields: [ruleVersionId], references: [id])
+  segments    Segment[]
+
+  @@index([userId])
+  @@index([deviceId])
+  @@map("sessions")
+}
+
+/// 音声セグメント（Transcriptの後継、STT状態管理付き）
+model Segment {
+  id              String    @id @default(cuid())
+  sessionId       String    @map("session_id")
+  userId          String    @map("user_id")
+  segmentNo       Int       @map("segment_no")
+  startAt         DateTime  @map("start_at")
+  endAt           DateTime  @map("end_at")
+  text            String?
+  sttStatus       String    @default("PENDING") @map("stt_status") // "PENDING" | "PROCESSING" | "DONE" | "FAILED"
+  sttAttemptCount Int       @default(0) @map("stt_attempt_count")
+  bunjinId        String?   @map("bunjin_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  session          Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  bunjin           Bunjin?           @relation(fields: [bunjinId], references: [id])
+  audioDeletionLog AudioDeletionLog?
+
+  @@index([sessionId])
+  @@index([userId])
+  @@map("segments")
+}
+
+/// 提案（日次サマリーやタスク提案）
+model Proposal {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  dateKey   String   @map("date_key") // "YYYY-MM-DD"
+  type      String   // "SUMMARY" | "TASK"
+  title     String
+  body      String   @default("")
+  status    String   @default("PENDING") // "PENDING" | "CONFIRMED" | "REJECTED"
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  weeklyExecutions WeeklyExecution[]
+
+  @@index([userId])
+  @@index([dateKey])
+  @@map("proposals")
+}
+
+/// タスク
+model Task {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  bunjinId   String?   @map("bunjin_id")
+  title      String
+  body       String    @default("")
+  status     String    @default("TODO") // "TODO" | "DOING" | "DONE" | "ARCHIVED"
+  priority   Int       @default(0)
+  archivedAt DateTime? @map("archived_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  bunjin Bunjin? @relation(fields: [bunjinId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("tasks")
+}
+
+/// 週次実行記録
+model WeeklyExecution {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  weekKey    String   @map("week_key") // "YYYY-Wxx"
+  proposalId String   @map("proposal_id")
+  note       String   @default("")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  proposal Proposal @relation(fields: [proposalId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, weekKey, proposalId])
+  @@index([userId])
+  @@map("weekly_executions")
+}
+
+/// SWLS回答（主観的幸福度）
+model SwlsResponse {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  dateKey   String   @map("date_key") // "YYYY-MM-DD"
+  q1        String?
+  q2        String?
+  q3        String?
+  q4        String?
+  q5        String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([userId, dateKey])
+  @@index([userId])
+  @@map("swls_responses")
+}
+
+/// メモリー（学習記録、追加のみ）
+model Memory {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  bunjinId   String?  @map("bunjin_id")
+  text       String
+  sourceRefs String   @default("[]") @map("source_refs") // JSON文字列
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  bunjin Bunjin? @relation(fields: [bunjinId], references: [id])
+
+  @@index([userId])
+  @@map("memories")
+}
+
+/// 音声削除ログ
+model AudioDeletionLog {
+  id        String   @id @default(cuid())
+  segmentId String   @unique @map("segment_id")
+  deletedAt DateTime @default(now()) @map("deleted_at")
+  reason    String   @default("stt_complete")
+
+  segment Segment @relation(fields: [segmentId], references: [id], onDelete: Cascade)
+
+  @@map("audio_deletion_logs")
 }

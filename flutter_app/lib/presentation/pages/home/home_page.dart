@@ -1,22 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/recording_provider.dart';
+import 'recording_panel.dart';
+import '../tasks/task_list_page.dart';
+import '../daily/daily_checkin_page.dart';
+import '../settings/settings_page.dart';
 
-class HomePage extends ConsumerWidget {
+class HomePage extends ConsumerStatefulWidget {
   const HomePage({super.key});
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$hours:$minutes:$seconds';
-  }
+  @override
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  int _currentIndex = 0;
+
+  final List<Widget> _pages = const [
+    RecordingPanel(),
+    TaskListPage(),
+    DailyCheckinPage(),
+    SettingsPage(),
+  ];
+
+  final List<String> _titles = const [
+    '録音',
+    'タスク',
+    '日次チェックイン',
+    '設定',
+  ];
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final recordingState = ref.watch(recordingNotifierProvider);
-
+  Widget build(BuildContext context) {
     ref.listen<RecordingState>(recordingNotifierProvider, (previous, next) {
       if (next.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -27,114 +42,37 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('音声録音アプリ'),
+        title: Text(_titles[_currentIndex]),
       ),
-      body: SingleChildScrollView(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const SizedBox(height: 48),
-
-                // 録音時間表示
-                Text(
-                  _formatDuration(recordingState.elapsed),
-                  style: Theme.of(context).textTheme.displayLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontFeatures: [const FontFeature.tabularFigures()],
-                      ),
-                ),
-                const SizedBox(height: 8),
-
-                // セグメント・文字起こし状態
-                if (recordingState.isRecording ||
-                    recordingState.segmentCount > 0)
-                  Text(
-                    'セグメント: ${recordingState.segmentCount}  |  '
-                    '文字起こし: ${recordingState.transcribedCount}',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                const SizedBox(height: 48),
-
-                // 録音ボタン
-                GestureDetector(
-                  onTap: () {
-                    final notifier =
-                        ref.read(recordingNotifierProvider.notifier);
-                    if (recordingState.isRecording) {
-                      notifier.stopRecording();
-                    } else {
-                      notifier.startRecording();
-                    }
-                  },
-                  child: Container(
-                    width: 120,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: recordingState.isRecording
-                          ? Colors.red
-                          : Theme.of(context).colorScheme.primary,
-                      boxShadow: [
-                        BoxShadow(
-                          color: (recordingState.isRecording
-                                  ? Colors.red
-                                  : Theme.of(context).colorScheme.primary)
-                              .withOpacity(0.4),
-                          blurRadius: 20,
-                          spreadRadius: 5,
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      recordingState.isRecording ? Icons.stop : Icons.mic,
-                      color: Colors.white,
-                      size: 48,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // 状態テキスト
-                Text(
-                  recordingState.isRecording ? '録音中...' : 'タップして録音開始',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: recordingState.isRecording
-                            ? Colors.red
-                            : Theme.of(context).colorScheme.onSurface,
-                      ),
-                ),
-
-                // 最新の文字起こし結果
-                if (recordingState.lastTranscript != null) ...[
-                  const SizedBox(height: 32),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  Text(
-                    '最新の文字起こし:',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .surfaceVariant,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      recordingState.lastTranscript!,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.mic),
+            label: '録音',
           ),
-        ),
+          NavigationDestination(
+            icon: Icon(Icons.task_alt),
+            label: 'タスク',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.calendar_today),
+            label: '日次',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings),
+            label: '設定',
+          ),
+        ],
       ),
     );
   }
