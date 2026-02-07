@@ -24,6 +24,9 @@ export async function PATCH(request, { params }) {
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       throw new ValidationError('Text is required and must be a non-empty string')
     }
+    if (text.length > 50000) {
+      throw new ValidationError('Text exceeds maximum length of 50000 characters')
+    }
 
     const memory = await updateMemoryText(id, text.trim())
 

@@ -26,7 +26,8 @@ export function BunjinManagerView() {
     }
 
     try {
-      await createBunjin({ name: newBunjinName.trim() })
+      const slug = newBunjinName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      await createBunjin({ slug, displayName: newBunjinName.trim() })
       setNewBunjinName('')
     } catch (err) {
       alert('作成に失敗しました: ' + err.message)
@@ -65,7 +66,7 @@ export function BunjinManagerView() {
                   style={{ '--card-color': b.color }}
                   onClick={() => setSelectedBunjin(b)}
                 >
-                  <span className="bunjin-name">{b.name}</span>
+                  <span className="bunjin-name">{b.displayName}</span>
                 </div>
               ))}
             </div>
@@ -79,7 +80,7 @@ export function BunjinManagerView() {
                   style={{ '--card-color': b.color }}
                 >
                   <span className="bunjin-name" onClick={() => setSelectedBunjin(b)}>
-                    {b.name}
+                    {b.displayName}
                   </span>
                   <button
                     className="btn-delete"
@@ -109,7 +110,7 @@ export function BunjinManagerView() {
 
           {selectedBunjin && (
             <div className="bunjin-detail-section">
-              <h3>{selectedBunjin.name}</h3>
+              <h3>{selectedBunjin.displayName}</h3>
               <RuleTreeEditor ruleTree={selectedBunjin.ruleTree} />
             </div>
           )}

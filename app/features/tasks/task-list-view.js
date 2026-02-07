@@ -33,7 +33,7 @@ export function TaskListView() {
         >
           <option value="">全ての分人</option>
           {bunjins.map(b => (
-            <option key={b.id} value={b.id}>{b.name}</option>
+            <option key={b.id} value={b.id}>{b.displayName}</option>
           ))}
         </select>
       </div>

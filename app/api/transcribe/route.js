@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { transcribeAudio } from '@/lib/gemini'
-import { MOCK_USER_ID, STT_STATUS } from '@/lib/constants'
+import { MOCK_USER_ID, STT_STATUS, SESSION_STATUS } from '@/lib/constants'
 import { errorResponse } from '@/lib/errors'
 
 const MAX_AUDIO_SIZE = 6 * 1024 * 1024 // 6MB
@@ -66,13 +66,13 @@ export async function POST(request) {
 
     // 2. Sessionを検索または作成
     let session = await prisma.session.findFirst({
-      where: { deviceId, userId: MOCK_USER_ID, status: 'ACTIVE' },
+      where: { deviceId, userId: MOCK_USER_ID, status: SESSION_STATUS.ACTIVE },
       orderBy: { startedAt: 'desc' },
     })
 
     if (!session) {
       session = await prisma.session.create({
-        data: { userId: MOCK_USER_ID, deviceId, status: 'ACTIVE' },
+        data: { userId: MOCK_USER_ID, deviceId, status: SESSION_STATUS.ACTIVE },
       })
     }
 
@@ -115,7 +115,14 @@ export async function GET(request) {
     const deviceId = searchParams.get('deviceId')
     const sessionId = searchParams.get('sessionId')
 
-    const where = {}
+    // ユーザー所有のセッションIDでスコープ
+    const userSessions = await prisma.session.findMany({
+      where: { userId: MOCK_USER_ID },
+      select: { id: true },
+    })
+    const userSessionIds = userSessions.map(s => s.id)
+
+    const where = { sessionId: { in: userSessionIds } }
     if (deviceId) where.deviceId = deviceId
     if (sessionId) where.sessionId = sessionId
 

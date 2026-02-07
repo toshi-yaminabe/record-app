@@ -23,10 +23,18 @@ export function SwlsFormView() {
 
   const fetchLatestResponse = async () => {
     try {
-      const data = await fetchApi('/api/swls/latest')
+      const today = new Date().toISOString().slice(0, 10)
+      const data = await fetchApi(`/api/swls?dateKey=${today}`)
       if (data.response) {
-        setResponses(data.response.answers || {})
-        setLastSubmitted(data.response.createdAt)
+        const r = data.response
+        const loaded = {}
+        if (r.q1) loaded[1] = r.q1
+        if (r.q2) loaded[2] = r.q2
+        if (r.q3) loaded[3] = r.q3
+        if (r.q4) loaded[4] = r.q4
+        if (r.q5) loaded[5] = r.q5
+        setResponses(loaded)
+        setLastSubmitted(r.createdAt)
       }
     } catch (err) {
       console.error('Failed to fetch SWLS:', err)
@@ -39,9 +47,17 @@ export function SwlsFormView() {
 
   const handleSubmit = async () => {
     try {
+      const today = new Date().toISOString().slice(0, 10)
       await fetchApi('/api/swls', {
         method: 'POST',
-        body: JSON.stringify({ answers: responses }),
+        body: JSON.stringify({
+          dateKey: today,
+          q1: responses[1] || undefined,
+          q2: responses[2] || undefined,
+          q3: responses[3] || undefined,
+          q4: responses[4] || undefined,
+          q5: responses[5] || undefined,
+        }),
       })
       alert('回答を保存しました')
       setLastSubmitted(new Date().toISOString())

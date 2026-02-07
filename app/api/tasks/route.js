@@ -30,10 +30,13 @@ export async function GET(request) {
     const bunjinId = searchParams.get('bunjinId')
     const limit = searchParams.get('limit')
 
+    const rawLimit = limit ? parseInt(limit, 10) : 50
+    const safeLimit = (Number.isFinite(rawLimit) && rawLimit >= 1) ? Math.min(rawLimit, 200) : 50
+
     const tasks = await listTasks({
       status: status || undefined,
       bunjinId: bunjinId || undefined,
-      limit: limit ? parseInt(limit, 10) : undefined,
+      limit: safeLimit,
     })
 
     return NextResponse.json({ tasks })

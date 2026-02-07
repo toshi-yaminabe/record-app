@@ -7,10 +7,10 @@ export function useProposals() {
   const { fetchApi, loading, error } = useApi()
   const [proposals, setProposals] = useState([])
 
-  const fetchProposals = useCallback(async (date = null) => {
+  const fetchProposals = useCallback(async (dateKey = null) => {
     try {
       const params = new URLSearchParams()
-      if (date) params.append('date', date)
+      if (dateKey) params.append('dateKey', dateKey)
 
       const data = await fetchApi(`/api/proposals?${params.toString()}`)
       setProposals(data.proposals || [])
@@ -23,8 +23,10 @@ export function useProposals() {
 
   const generateProposals = useCallback(async () => {
     try {
-      const data = await fetchApi('/api/proposals/generate', {
+      const today = new Date().toISOString().slice(0, 10)
+      const data = await fetchApi('/api/proposals', {
         method: 'POST',
+        body: JSON.stringify({ dateKey: today }),
       })
       setProposals(data.proposals || [])
       return data.proposals
@@ -36,8 +38,9 @@ export function useProposals() {
 
   const confirmProposal = useCallback(async (proposalId) => {
     try {
-      const data = await fetchApi(`/api/proposals/${proposalId}/confirm`, {
-        method: 'POST',
+      const data = await fetchApi(`/api/proposals/${proposalId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'CONFIRMED' }),
       })
       setProposals(prev => prev.map(p => p.id === proposalId ? data.proposal : p))
       return data.proposal
@@ -49,10 +52,11 @@ export function useProposals() {
 
   const rejectProposal = useCallback(async (proposalId) => {
     try {
-      const data = await fetchApi(`/api/proposals/${proposalId}/reject`, {
-        method: 'POST',
+      const data = await fetchApi(`/api/proposals/${proposalId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: 'REJECTED' }),
       })
-      setProposals(prev => prev.filter(p => p.id !== proposalId))
+      setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'REJECTED' } : p))
       return data
     } catch (err) {
       console.error('Failed to reject proposal:', err)

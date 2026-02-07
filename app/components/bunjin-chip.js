@@ -8,7 +8,7 @@ export function BunjinChip({ bunjin, size = 'medium' }) {
       className={`bunjin-chip ${sizeClass}`}
       style={{ '--chip-color': bunjin.color || '#9c27b0' }}
     >
-      {bunjin.name}
+      {bunjin.displayName}
     </span>
   )
 }

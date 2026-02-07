@@ -19,7 +19,7 @@ export async function POST() {
     const publishedVersion = await publishRuleTree()
 
     return NextResponse.json({
-      version: publishedVersion,
+      publishedVersion,
     }, { status: 201 })
   } catch (error) {
     return errorResponse(error)

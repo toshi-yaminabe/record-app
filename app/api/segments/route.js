@@ -22,7 +22,8 @@ export async function GET(request) {
 
     const { searchParams } = new URL(request.url)
     const sessionId = searchParams.get('sessionId')
-    const limit = parseInt(searchParams.get('limit') || '100', 10)
+    const rawLimit = parseInt(searchParams.get('limit') || '100', 10)
+    const limit = (Number.isFinite(rawLimit) && rawLimit >= 1) ? Math.min(rawLimit, 200) : 100
 
     const segments = await listSegments({ sessionId, limit })
 

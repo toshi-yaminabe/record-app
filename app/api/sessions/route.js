@@ -32,7 +32,7 @@ export async function POST(request) {
 
     const session = await createSession({ deviceId })
 
-    return NextResponse.json(session, { status: 201 })
+    return NextResponse.json({ session }, { status: 201 })
   } catch (error) {
     return errorResponse(error)
   }
@@ -52,7 +52,8 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '50', 10)
+    const rawLimit = parseInt(searchParams.get('limit') || '50', 10)
+    const limit = (Number.isFinite(rawLimit) && rawLimit >= 1) ? Math.min(rawLimit, 200) : 50
 
     const sessions = await listSessions({ limit })
 
