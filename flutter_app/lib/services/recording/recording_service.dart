@@ -1,124 +1,181 @@
 import 'dart:async';
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:record/record.dart';
+import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
-import '../../core/constants.dart';
+import 'permission_service.dart';
 
-/// 録音サービス
+/// 録音サービス（Background Service IPCプロキシ）
+///
+/// RecordingEvent ストリームAPIは変更なし。
+/// RecordingNotifier は変更不要。
 class RecordingService {
-  final AudioRecorder _recorder = AudioRecorder();
+  final FlutterBackgroundService _service = FlutterBackgroundService();
   final Uuid _uuid = const Uuid();
 
-  Timer? _segmentTimer;
-  String? _currentSegmentPath;
-  String? _currentSessionId;
-  DateTime? _segmentStartTime;
   bool _isRecording = false;
+  String? _currentSessionId;
 
   final StreamController<RecordingEvent> _eventController =
       StreamController<RecordingEvent>.broadcast();
+
+  StreamSubscription? _startedSub;
+  StreamSubscription? _segmentSub;
+  StreamSubscription? _stoppedSub;
+  StreamSubscription? _errorSub;
 
   Stream<RecordingEvent> get events => _eventController.stream;
   bool get isRecording => _isRecording;
   String? get currentSessionId => _currentSessionId;
 
+  RecordingService() {
+    _listenToServiceEvents();
+  }
+
+  void _listenToServiceEvents() {
+    _startedSub = _service.on('onRecordingStarted').listen((event) {
+      if (event == null) return;
+      _isRecording = true;
+      _currentSessionId = event['sessionId'] as String;
+      _eventController.add(RecordingStarted(_currentSessionId!));
+    });
+
+    _segmentSub = _service.on('onSegmentCompleted').listen((event) {
+      if (event == null) return;
+      _eventController.add(SegmentCompleted(
+        sessionId: event['sessionId'] as String,
+        filePath: event['filePath'] as String,
+        startTime: DateTime.parse(event['startTime'] as String),
+        endTime: DateTime.parse(event['endTime'] as String),
+        reason: _parseReason(event['reason'] as String),
+      ));
+    });
+
+    _stoppedSub = _service.on('onRecordingStopped').listen((event) {
+      if (event == null) return;
+      _isRecording = false;
+      _eventController.add(RecordingStopped(event['sessionId'] as String));
+      _currentSessionId = null;
+      // M4: 録音停止後にバックグラウンドサービスを停止
+      _service.invoke('stopService');
+    });
+
+    // H3: バックグラウンドからのエラー通知を受信
+    _errorSub = _service.on('onError').listen((event) {
+      if (event == null) return;
+      _eventController.add(RecordingError(event['message'] as String));
+    });
+  }
+
+  SegmentReason _parseReason(String reason) {
+    switch (reason) {
+      case 'duration':
+        return SegmentReason.duration;
+      case 'silence':
+        return SegmentReason.silence;
+      case 'manual':
+      default:
+        return SegmentReason.manual;
+    }
+  }
+
   /// 録音を開始
   Future<void> startRecording() async {
     if (_isRecording) return;
 
-    // マイク権限確認
-    if (!await _recorder.hasPermission()) {
-      throw RecordingException('マイクの権限がありません');
+    // 権限チェック
+    final permResult = await PermissionService.requestRecordingPermissions();
+    if (!permResult.granted) {
+      throw RecordingException(permResult.message ?? 'マイクの権限がありません');
     }
 
-    _currentSessionId = _uuid.v4();
-    _isRecording = true;
+    final sessionId = _uuid.v4();
 
-    await _startNewSegment();
-    _eventController.add(RecordingStarted(_currentSessionId!));
+    // recordings dirパスをSharedPreferencesから取得
+    final prefs = await SharedPreferences.getInstance();
+    final recordingsDir = prefs.getString('recordings_dir');
+    if (recordingsDir == null || recordingsDir.isEmpty) {
+      throw RecordingException('録音ディレクトリが設定されていません');
+    }
+
+    // バックグラウンドサービス起動
+    await _service.startService();
+
+    // C1: readyハンドシェイク — サービスが'ready'を発火するまで待機
+    final readyCompleter = Completer<void>();
+    late StreamSubscription readySub;
+    readySub = _service.on('ready').listen((_) {
+      if (!readyCompleter.isCompleted) {
+        readyCompleter.complete();
+      }
+      readySub.cancel();
+    });
+
+    // 5秒タイムアウト
+    try {
+      await readyCompleter.future.timeout(const Duration(seconds: 5));
+    } on TimeoutException {
+      readySub.cancel();
+      throw RecordingException('バックグラウンドサービスの起動がタイムアウトしました');
+    }
+
+    _service.invoke('start', {
+      'sessionId': sessionId,
+      'recordingsDir': recordingsDir,
+    });
   }
 
   /// 録音を停止
   Future<void> stopRecording() async {
     if (!_isRecording) return;
-
-    _segmentTimer?.cancel();
-    _segmentTimer = null;
-
-    final path = await _recorder.stop();
-    _isRecording = false;
-
-    if (path != null && _currentSegmentPath != null) {
-      _eventController.add(SegmentCompleted(
-        sessionId: _currentSessionId!,
-        filePath: path,
-        startTime: _segmentStartTime!,
-        endTime: DateTime.now(),
-        reason: SegmentReason.manual,
-      ));
-    }
-
-    _eventController.add(RecordingStopped(_currentSessionId!));
-    _currentSessionId = null;
+    _service.invoke('stop');
   }
 
-  /// 新しいセグメントを開始
-  Future<void> _startNewSegment() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final segmentId = _uuid.v4();
-    _currentSegmentPath = p.join(dir.path, 'recordings', '$segmentId.m4a');
-
-    // フォルダ作成
-    final recordingsDir = Directory(p.join(dir.path, 'recordings'));
-    if (!await recordingsDir.exists()) {
-      await recordingsDir.create(recursive: true);
+  /// C3: バックグラウンドサービスの録音状態を同期
+  Future<bool> syncBackgroundState() async {
+    final running = await _service.isRunning();
+    if (!running) {
+      // サービスが停止している場合はローカル状態もリセット
+      if (_isRecording) {
+        _isRecording = false;
+        _currentSessionId = null;
+      }
+      return false;
     }
 
-    _segmentStartTime = DateTime.now();
+    // サービスに現在の状態を問い合わせ
+    final stateCompleter = Completer<Map<String, dynamic>?>();
+    late StreamSubscription stateSub;
+    stateSub = _service.on('stateResponse').listen((event) {
+      if (!stateCompleter.isCompleted) {
+        stateCompleter.complete(event);
+      }
+      stateSub.cancel();
+    });
 
-    await _recorder.start(
-      RecordConfig(
-        encoder: AudioEncoder.aacLc,
-        sampleRate: AppConstants.sampleRate,
-        bitRate: AppConstants.bitRate,
-      ),
-      path: _currentSegmentPath!,
-    );
+    _service.invoke('getState');
 
-    // セグメントタイマー設定
-    _segmentTimer?.cancel();
-    _segmentTimer = Timer(
-      Duration(minutes: AppConstants.segmentDurationMinutes),
-      _onSegmentTimeout,
-    );
-  }
-
-  /// セグメントタイムアウト
-  Future<void> _onSegmentTimeout() async {
-    if (!_isRecording) return;
-
-    final path = await _recorder.stop();
-
-    if (path != null) {
-      _eventController.add(SegmentCompleted(
-        sessionId: _currentSessionId!,
-        filePath: path,
-        startTime: _segmentStartTime!,
-        endTime: DateTime.now(),
-        reason: SegmentReason.duration,
-      ));
+    try {
+      final bgState = await stateCompleter.future.timeout(
+        const Duration(seconds: 3),
+      );
+      if (bgState != null) {
+        _isRecording = bgState['isRecording'] as bool? ?? false;
+        _currentSessionId = bgState['sessionId'] as String?;
+      }
+    } on TimeoutException {
+      stateSub.cancel();
+      // タイムアウト時はisRunningの結果を信頼
     }
 
-    // 次のセグメント開始
-    await _startNewSegment();
+    return _isRecording;
   }
 
   /// リソース解放
   void dispose() {
-    _segmentTimer?.cancel();
-    _recorder.dispose();
+    _startedSub?.cancel();
+    _segmentSub?.cancel();
+    _stoppedSub?.cancel();
+    _errorSub?.cancel();
     _eventController.close();
   }
 }
@@ -150,6 +207,12 @@ class SegmentCompleted extends RecordingEvent {
     required this.endTime,
     required this.reason,
   });
+}
+
+/// H3: バックグラウンドエラーイベント
+class RecordingError extends RecordingEvent {
+  final String message;
+  RecordingError(this.message);
 }
 
 enum SegmentReason { duration, silence, manual }

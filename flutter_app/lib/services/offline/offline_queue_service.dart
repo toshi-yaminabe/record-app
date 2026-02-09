@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../../core/errors.dart';
@@ -57,8 +56,6 @@ class OfflineQueueService {
 
   /// エントリを処理（サーバーに送信）
   Future<bool> _processEntry(QueueEntry entry) async {
-    const maxRetries = 5;
-
     try {
       final uri = Uri.parse('$baseUrl${entry.endpoint}');
       late http.Response response;
@@ -105,17 +102,14 @@ class OfflineQueueService {
 
   /// リトライ処理
   Future<bool> _handleRetry(QueueEntry entry) async {
-    const maxRetries = 5;
     final newRetryCount = entry.retryCount + 1;
 
-    if (newRetryCount > maxRetries) {
-      // 最大リトライ回数超過: 削除
-      await _db.markCompleted(entry.id!);
+    if (newRetryCount > AppConstants.maxRetryCount) {
+      // 最大リトライ回数超過: dead letterに移動（データ保持）
+      await _db.markDeadLetter(entry.id!);
       return true;
     } else {
-      // Exponential backoff: 2^retryCount 秒待機
-      final backoffSeconds = pow(2, newRetryCount).toInt();
-      await Future.delayed(Duration(seconds: backoffSeconds));
+      // H4: ブロッキング排除 — 即座にmarkFailedして次回flushサイクルに委ねる
       await _db.markFailed(entry.id!, newRetryCount);
       return false; // フラッシュを中断
     }
@@ -124,6 +118,16 @@ class OfflineQueueService {
   /// 未処理エントリ数を取得
   Future<int> pendingCount() async {
     return await _db.pendingCount();
+  }
+
+  /// dead letterエントリ数を取得
+  Future<int> deadLetterCount() async {
+    return await _db.deadLetterCount();
+  }
+
+  /// dead letterエントリをpendingに戻して再試行
+  Future<void> retryDeadLetters() async {
+    await _db.resetDeadLetters();
   }
 
   /// キューをクリア

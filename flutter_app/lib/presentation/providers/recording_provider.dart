@@ -134,6 +134,8 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
           startTime: startTime,
           endTime: endTime,
         );
+      case RecordingError(:final message):
+        state = state.copyWith(error: message);
     }
   }
 

@@ -33,6 +33,19 @@ class ProposalModel {
     );
   }
 
+  ProposalModel copyWith({String? status}) {
+    return ProposalModel(
+      id: id,
+      userId: userId,
+      dateKey: dateKey,
+      type: type,
+      title: title,
+      body: body,
+      status: status ?? this.status,
+      createdAt: createdAt,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

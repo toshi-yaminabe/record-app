@@ -3,8 +3,45 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/recording_provider.dart';
 
 /// 録音パネルウィジェット
-class RecordingPanel extends ConsumerWidget {
+class RecordingPanel extends ConsumerStatefulWidget {
   const RecordingPanel({super.key});
+
+  @override
+  ConsumerState<RecordingPanel> createState() => _RecordingPanelState();
+}
+
+class _RecordingPanelState extends ConsumerState<RecordingPanel>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // C3: フォアグラウンド復帰時にバックグラウンドサービスと状態同期
+      _syncState();
+    }
+  }
+
+  Future<void> _syncState() async {
+    final service = ref.read(recordingServiceProvider);
+    final isRecording = await service.syncBackgroundState();
+    // Notifierの状態をバックグラウンドの実態に合わせる
+    final currentState = ref.read(recordingNotifierProvider);
+    if (currentState.isRecording != isRecording) {
+      // 状態不一致の場合はリロード（UI再構築のトリガー）
+      ref.invalidate(recordingNotifierProvider);
+    }
+  }
 
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -15,7 +52,7 @@ class RecordingPanel extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final recordingState = ref.watch(recordingNotifierProvider);
 
     return Center(
@@ -68,7 +105,7 @@ class RecordingPanel extends ConsumerWidget {
                       color: (recordingState.isRecording
                               ? Colors.red
                               : Theme.of(context).colorScheme.primary)
-                          .withOpacity(0.4),
+                          .withValues(alpha: 0.4),
                       blurRadius: 20,
                       spreadRadius: 5,
                     ),
@@ -106,7 +143,7 @@ class RecordingPanel extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

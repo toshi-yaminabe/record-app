@@ -77,6 +77,38 @@ class OfflineQueueDB {
     );
   }
 
+  /// エントリをdead letterに移動
+  Future<void> markDeadLetter(int id) async {
+    final db = await database;
+    await db.update(
+      'queue_entries',
+      {'status': 'dead_letter'},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  /// dead letterエントリをpendingに戻す
+  Future<void> resetDeadLetters() async {
+    final db = await database;
+    await db.update(
+      'queue_entries',
+      {'status': 'pending', 'retry_count': 0},
+      where: 'status = ?',
+      whereArgs: ['dead_letter'],
+    );
+  }
+
+  /// dead letterエントリ数を取得
+  Future<int> deadLetterCount() async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM queue_entries WHERE status = ?',
+      ['dead_letter'],
+    );
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
   /// 未処理エントリ数を取得
   Future<int> pendingCount() async {
     final db = await database;

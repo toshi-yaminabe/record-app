@@ -24,9 +24,10 @@ class AppConstants {
 
 /// API設定
 class ApiConfig {
-  // --dart-define=API_BASE_URL=https://your-app.vercel.app で切り替え
+  // ビルド時に注入: --dart-define-from-file=env/prod.json
+  // または: --dart-define=API_BASE_URL=https://your-app.vercel.app
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000',
+    defaultValue: '',
   );
 }

@@ -24,6 +24,14 @@ class TranscribeService {
     required DateTime startAt,
     required DateTime endAt,
   }) async {
+    // H2: baseUrlが空の場合は即座にエラー
+    if (baseUrl.isEmpty) {
+      throw TranscribeException(
+        'API_BASE_URLが設定されていません。'
+        '--dart-define-from-file=env/prod.json でビルドしてください。',
+      );
+    }
+
     final file = File(filePath);
     if (!await file.exists()) {
       throw TranscribeException('ファイルが存在しません: $filePath');

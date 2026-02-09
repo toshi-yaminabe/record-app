@@ -6,12 +6,14 @@ import FlutterMacOS
 import Foundation
 
 import connectivity_plus
+import flutter_local_notifications
 import record_darwin
 import shared_preferences_foundation
 import sqflite_darwin
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   ConnectivityPlusPlugin.register(with: registry.registrar(forPlugin: "ConnectivityPlusPlugin"))
+  FlutterLocalNotificationsPlugin.register(with: registry.registrar(forPlugin: "FlutterLocalNotificationsPlugin"))
   RecordPlugin.register(with: registry.registrar(forPlugin: "RecordPlugin"))
   SharedPreferencesPlugin.register(with: registry.registrar(forPlugin: "SharedPreferencesPlugin"))
   SqflitePlugin.register(with: registry.registrar(forPlugin: "SqflitePlugin"))
