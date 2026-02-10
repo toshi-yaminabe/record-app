@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../../core/errors.dart';
 import '../models/task_model.dart';
@@ -21,12 +22,19 @@ class TaskRepository {
       if (bunjinId != null) queryParams['bunjinId'] = bunjinId;
       if (status != null) queryParams['status'] = status;
 
-      final uri = Uri.parse('$baseUrl/api/tasks').replace(queryParameters: queryParams);
+      final uri =
+          Uri.parse('$baseUrl/api/tasks').replace(queryParameters: queryParams);
+      AppLogger.api('GET $uri');
       final response = await http.get(uri);
+      AppLogger.api('GET /api/tasks -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body) as List;
-        return jsonList.map((json) => TaskModel.fromJson(json as Map<String, dynamic>)).toList();
+        // S1: エンベロープ展開 — バックエンドは { tasks: [...] } で返す
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> tasks = json['tasks'] as List;
+        return tasks
+            .map((t) => TaskModel.fromJson(t as Map<String, dynamic>))
+            .toList();
       } else {
         throw ApiException(
           'Failed to get tasks',
@@ -34,9 +42,11 @@ class TaskRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
-      throw NetworkException('Network error during tasks retrieval', details: e.toString());
+      AppLogger.api('GET /api/tasks FAILED', error: e, stack: stackTrace);
+      throw NetworkException('Network error during tasks retrieval',
+          details: e.toString());
     }
   }
 
@@ -48,22 +58,27 @@ class TaskRepository {
     String? body,
     int priority = 0,
   }) async {
+    final bodyJson = jsonEncode({
+      'userId': userId,
+      'bunjinId': bunjinId,
+      'title': title,
+      'body': body,
+      'priority': priority,
+    });
+
     try {
+      AppLogger.api('POST /api/tasks body=$bodyJson');
       final response = await http.post(
         Uri.parse('$baseUrl/api/tasks'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'userId': userId,
-          'bunjinId': bunjinId,
-          'title': title,
-          'body': body,
-          'priority': priority,
-        }),
+        body: bodyJson,
       );
+      AppLogger.api('POST /api/tasks -> ${response.statusCode}');
 
       if (response.statusCode == 201) {
+        // S1: エンベロープ展開 — バックエンドは { task: {...} } で返す
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        return TaskModel.fromJson(json);
+        return TaskModel.fromJson(json['task'] as Map<String, dynamic>);
       } else {
         throw ApiException(
           'Failed to create task',
@@ -71,9 +86,11 @@ class TaskRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
-      throw NetworkException('Network error during task creation', details: e.toString());
+      AppLogger.api('POST /api/tasks FAILED', error: e, stack: stackTrace);
+      throw NetworkException('Network error during task creation',
+          details: e.toString());
     }
   }
 
@@ -92,15 +109,20 @@ class TaskRepository {
       if (status != null) updates['status'] = status;
       if (priority != null) updates['priority'] = priority;
 
+      final bodyJson = jsonEncode(updates);
+      AppLogger.api('PATCH /api/tasks/$taskId body=$bodyJson');
+
       final response = await http.patch(
         Uri.parse('$baseUrl/api/tasks/$taskId'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(updates),
+        body: bodyJson,
       );
+      AppLogger.api('PATCH /api/tasks/$taskId -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
+        // S1: エンベロープ展開 — バックエンドは { task: {...} } で返す
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        return TaskModel.fromJson(json);
+        return TaskModel.fromJson(json['task'] as Map<String, dynamic>);
       } else {
         throw ApiException(
           'Failed to update task',
@@ -108,9 +130,12 @@ class TaskRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
-      throw NetworkException('Network error during task update', details: e.toString());
+      AppLogger.api('PATCH /api/tasks/$taskId FAILED',
+          error: e, stack: stackTrace);
+      throw NetworkException('Network error during task update',
+          details: e.toString());
     }
   }
 }

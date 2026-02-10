@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../../data/models/session_model.dart';
 import '../../data/repositories/session_repository.dart';
@@ -46,6 +47,16 @@ class SessionNotifier extends StateNotifier<SessionState> {
 
   /// セッション作成
   Future<SessionModel?> createSession() async {
+    // H2: deviceIdが未解決の場合はセッション作成をブロック
+    if (_deviceId == 'loading' || _deviceId == 'error') {
+      AppLogger.lifecycle(
+          'createSession BLOCKED: deviceId=$_deviceId');
+      state = SessionState(
+          error: 'デバイスIDの取得中です。しばらく待ってから再試行してください。',
+          isLoading: false);
+      return null;
+    }
+
     state = state.copyWith(isLoading: true);
     try {
       final session = await _repository.createSession(
@@ -86,7 +97,6 @@ final sessionNotifierProvider =
   final repository = ref.watch(sessionRepositoryProvider);
   final deviceIdAsync = ref.watch(deviceIdProvider);
 
-  // デバイスIDが取得できるまで待機
   final deviceId = deviceIdAsync.when(
     data: (id) => id,
     loading: () => 'loading',

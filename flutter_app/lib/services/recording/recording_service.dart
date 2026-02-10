@@ -2,12 +2,10 @@ import 'dart:async';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/app_logger.dart';
 import 'permission_service.dart';
 
 /// 録音サービス（Background Service IPCプロキシ）
-///
-/// RecordingEvent ストリームAPIは変更なし。
-/// RecordingNotifier は変更不要。
 class RecordingService {
   final FlutterBackgroundService _service = FlutterBackgroundService();
   final Uuid _uuid = const Uuid();
@@ -36,14 +34,18 @@ class RecordingService {
       if (event == null) return;
       _isRecording = true;
       _currentSessionId = event['sessionId'] as String;
+      AppLogger.recording(
+          'BG event: onRecordingStarted sessionId=$_currentSessionId');
       _eventController.add(RecordingStarted(_currentSessionId!));
     });
 
     _segmentSub = _service.on('onSegmentCompleted').listen((event) {
       if (event == null) return;
+      final filePath = event['filePath'] as String;
+      AppLogger.recording('BG event: onSegmentCompleted filePath=$filePath');
       _eventController.add(SegmentCompleted(
         sessionId: event['sessionId'] as String,
-        filePath: event['filePath'] as String,
+        filePath: filePath,
         startTime: DateTime.parse(event['startTime'] as String),
         endTime: DateTime.parse(event['endTime'] as String),
         reason: _parseReason(event['reason'] as String),
@@ -53,7 +55,10 @@ class RecordingService {
     _stoppedSub = _service.on('onRecordingStopped').listen((event) {
       if (event == null) return;
       _isRecording = false;
-      _eventController.add(RecordingStopped(event['sessionId'] as String));
+      final sessionId = event['sessionId'] as String;
+      AppLogger.recording(
+          'BG event: onRecordingStopped sessionId=$sessionId');
+      _eventController.add(RecordingStopped(sessionId));
       _currentSessionId = null;
       // M4: 録音停止後にバックグラウンドサービスを停止
       _service.invoke('stopService');
@@ -62,7 +67,9 @@ class RecordingService {
     // H3: バックグラウンドからのエラー通知を受信
     _errorSub = _service.on('onError').listen((event) {
       if (event == null) return;
-      _eventController.add(RecordingError(event['message'] as String));
+      final message = event['message'] as String;
+      AppLogger.recording('BG event: onError message=$message');
+      _eventController.add(RecordingError(message));
     });
   }
 
@@ -98,6 +105,7 @@ class RecordingService {
     }
 
     // バックグラウンドサービス起動
+    AppLogger.recording('startRecording: waiting for ready handshake');
     await _service.startService();
 
     // C1: readyハンドシェイク — サービスが'ready'を発火するまで待機
@@ -118,6 +126,8 @@ class RecordingService {
       throw RecordingException('バックグラウンドサービスの起動がタイムアウトしました');
     }
 
+    AppLogger.recording(
+        'ready received, sending start command sessionId=$sessionId');
     _service.invoke('start', {
       'sessionId': sessionId,
       'recordingsDir': recordingsDir,
@@ -127,6 +137,7 @@ class RecordingService {
   /// 録音を停止
   Future<void> stopRecording() async {
     if (!_isRecording) return;
+    AppLogger.recording('stopRecording: sending stop command');
     _service.invoke('stop');
   }
 
@@ -164,9 +175,10 @@ class RecordingService {
       }
     } on TimeoutException {
       stateSub.cancel();
-      // タイムアウト時はisRunningの結果を信頼
     }
 
+    AppLogger.recording(
+        'syncBackgroundState: isRecording=$_isRecording sessionId=$_currentSessionId');
     return _isRecording;
   }
 

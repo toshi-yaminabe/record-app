@@ -3,7 +3,7 @@ class SessionModel {
   final String id;
   final String userId;
   final String deviceId;
-  final String status; // 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
+  final String status; // 'ACTIVE' | 'STOPPED'
   final DateTime startedAt;
   final DateTime? endedAt;
   final DateTime createdAt;

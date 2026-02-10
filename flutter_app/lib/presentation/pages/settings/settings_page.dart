@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/app_logger.dart';
 import '../../../core/constants.dart';
 import '../../providers/recording_provider.dart';
 
@@ -24,7 +25,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _loadCounts() async {
-    // H1: Riverpodプロバイダー経由で取得
     final queueService = ref.read(offlineQueueServiceProvider);
     final pending = await queueService.pendingCount();
     final deadLetter = await queueService.deadLetterCount();
@@ -74,6 +74,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
+  Future<void> _showDebugLog() async {
+    final log = await AppLogger.readLog();
+    if (!mounted) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _DebugLogPage(log: log),
+      ),
+    );
+  }
+
+  Future<void> _clearDebugLog() async {
+    await AppLogger.clearLog();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('デバッグログをクリアしました')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final apiUrl = ApiConfig.baseUrl.isEmpty ? '（未設定）' : ApiConfig.baseUrl;
@@ -84,7 +104,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ListTile(
           leading: const Icon(Icons.info_outline),
           title: const Text('アプリバージョン'),
-          subtitle: const Text('1.5.0+2'),
+          subtitle: const Text('1.5.1+3'),
         ),
         const Divider(),
 
@@ -150,8 +170,64 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             ],
           ),
         ),
+        const Divider(),
+
+        // デバッグログ
+        ListTile(
+          leading: const Icon(Icons.bug_report),
+          title: const Text('デバッグログ'),
+          subtitle: const Text('アプリの動作ログを確認'),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _showDebugLog,
+                  icon: const Icon(Icons.article),
+                  label: const Text('ログ表示'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _clearDebugLog,
+                  icon: const Icon(Icons.clear_all),
+                  label: const Text('ログクリア'),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 16),
       ],
+    );
+  }
+}
+
+/// デバッグログ表示ページ
+class _DebugLogPage extends StatelessWidget {
+  final String log;
+
+  const _DebugLogPage({required this.log});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('デバッグログ'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(12),
+        child: SelectableText(
+          log,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 11,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../../core/app_logger.dart';
 import 'queue_entry.dart';
 
 /// オフラインキューデータベース
@@ -15,6 +16,7 @@ class OfflineQueueDB {
   Future<Database> _initDB() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'offline_queue.db');
+    AppLogger.db('initDB: creating queue_entries table at $path');
 
     return await openDatabase(
       path,
@@ -38,7 +40,9 @@ class OfflineQueueDB {
   /// エントリをキューに追加
   Future<int> enqueue(QueueEntry entry) async {
     final db = await database;
-    return await db.insert('queue_entries', entry.toMap());
+    final result = await db.insert('queue_entries', entry.toMap());
+    AppLogger.db('enqueue: id=$result');
+    return result;
   }
 
   /// 次の処理対象エントリを取得（FIFO）
@@ -53,7 +57,9 @@ class OfflineQueueDB {
     );
 
     if (maps.isEmpty) return null;
-    return QueueEntry.fromMap(maps.first);
+    final entry = QueueEntry.fromMap(maps.first);
+    AppLogger.db('dequeueNext: found entry#${entry.id}');
+    return entry;
   }
 
   /// エントリを完了としてマーク（削除）

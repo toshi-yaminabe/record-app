@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import '../../core/app_logger.dart';
 
 /// 文字起こしサービス
 class TranscribeService {
@@ -9,13 +11,6 @@ class TranscribeService {
   TranscribeService({required this.baseUrl});
 
   /// 音声ファイルを送信して文字起こし
-  ///
-  /// [filePath] 音声ファイルのパス
-  /// [deviceId] 端末ID
-  /// [sessionId] セッションID
-  /// [segmentNo] セグメント番号
-  /// [startAt] 録音開始時刻
-  /// [endAt] 録音終了時刻
   Future<TranscribeResult> transcribe({
     required String filePath,
     required String deviceId,
@@ -37,6 +32,9 @@ class TranscribeService {
       throw TranscribeException('ファイルが存在しません: $filePath');
     }
 
+    AppLogger.api(
+        'POST /api/transcribe file=$filePath size=${file.lengthSync()}bytes');
+
     final uri = Uri.parse('$baseUrl/api/transcribe');
     final request = http.MultipartRequest('POST', uri);
 
@@ -54,8 +52,22 @@ class TranscribeService {
     request.fields['startAt'] = startAt.toIso8601String();
     request.fields['endAt'] = endAt.toIso8601String();
 
-    final streamedResponse = await request.send();
+    // C1: タイムアウト付き送信（60秒）
+    final http.StreamedResponse streamedResponse;
+    try {
+      streamedResponse = await request.send().timeout(
+        const Duration(seconds: 60),
+        onTimeout: () =>
+            throw TranscribeException('アップロードがタイムアウトしました'),
+      );
+    } on TranscribeException {
+      rethrow;
+    } on TimeoutException {
+      throw TranscribeException('アップロードがタイムアウトしました');
+    }
+
     final response = await http.Response.fromStream(streamedResponse);
+    AppLogger.api('POST /api/transcribe -> ${response.statusCode}');
 
     if (response.statusCode != 200) {
       throw TranscribeException('文字起こし失敗: ${response.body}');
@@ -77,8 +89,11 @@ class TranscribeService {
     if (deviceId != null) params['deviceId'] = deviceId;
     if (sessionId != null) params['sessionId'] = sessionId;
 
-    final uri = Uri.parse('$baseUrl/api/transcribe').replace(queryParameters: params);
+    final uri =
+        Uri.parse('$baseUrl/api/transcribe').replace(queryParameters: params);
+    AppLogger.api('GET $uri');
     final response = await http.get(uri);
+    AppLogger.api('GET /api/transcribe -> ${response.statusCode}');
 
     if (response.statusCode != 200) {
       throw TranscribeException('取得失敗: ${response.body}');

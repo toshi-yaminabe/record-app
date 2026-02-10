@@ -3,10 +3,12 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../../services/recording/recording_service.dart';
 import '../../services/transcribe/transcribe_service.dart';
 import '../../services/offline/offline_queue_service.dart';
+import '../../services/offline/pending_transcribe_store.dart';
 
 /// 録音サービスプロバイダー
 final recordingServiceProvider = Provider<RecordingService>((ref) {
@@ -23,6 +25,12 @@ final transcribeServiceProvider = Provider<TranscribeService>((ref) {
 /// オフラインキューサービスプロバイダー
 final offlineQueueServiceProvider = Provider<OfflineQueueService>((ref) {
   return OfflineQueueService();
+});
+
+/// 文字起こしリトライ専用ストアプロバイダー
+final pendingTranscribeStoreProvider =
+    Provider<PendingTranscribeStore>((ref) {
+  return PendingTranscribeStore();
 });
 
 /// デバイスIDプロバイダー（shared_preferencesで永続化）
@@ -84,7 +92,7 @@ class RecordingState {
 class RecordingNotifier extends StateNotifier<RecordingState> {
   final RecordingService _recordingService;
   final TranscribeService _transcribeService;
-  final OfflineQueueService _offlineQueueService;
+  final PendingTranscribeStore _pendingStore;
   final String _deviceId;
   StreamSubscription? _eventSubscription;
   Timer? _elapsedTimer;
@@ -93,7 +101,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
   RecordingNotifier(
     this._recordingService,
     this._transcribeService,
-    this._offlineQueueService,
+    this._pendingStore,
     this._deviceId,
   ) : super(const RecordingState()) {
     _eventSubscription = _recordingService.events.listen(_onEvent);
@@ -102,6 +110,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
   void _onEvent(RecordingEvent event) {
     switch (event) {
       case RecordingStarted(:final sessionId):
+        AppLogger.recording('RecordingStarted sessionId=$sessionId');
         _startTime = DateTime.now();
         _startElapsedTimer();
         state = state.copyWith(
@@ -111,6 +120,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
           transcribedCount: 0,
         );
       case RecordingStopped():
+        AppLogger.recording('RecordingStopped');
         _stopElapsedTimer();
         state = state.copyWith(
           isRecording: false,
@@ -123,10 +133,11 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
           :final startTime,
           :final endTime
         ):
+        AppLogger.recording(
+            'SegmentCompleted sessionId=$sessionId filePath=$filePath');
         state = state.copyWith(
           segmentCount: state.segmentCount + 1,
         );
-        // 文字起こしを非同期で実行
         _transcribeAndDelete(
           filePath: filePath,
           sessionId: sessionId,
@@ -135,11 +146,13 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
           endTime: endTime,
         );
       case RecordingError(:final message):
+        AppLogger.recording('RecordingError: $message');
         state = state.copyWith(error: message);
     }
   }
 
-  /// 文字起こしして、成功したらローカルファイルを削除
+  /// S2: 文字起こしして、成功したらローカルファイルを削除。
+  /// 失敗時はPendingTranscribeStoreに保存（multipartリトライ可能）。
   Future<void> _transcribeAndDelete({
     required String filePath,
     required String sessionId,
@@ -147,6 +160,8 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
+    AppLogger.recording(
+        'transcribeAndDelete: filePath=$filePath sessionId=$sessionId');
     try {
       final result = await _transcribeService.transcribe(
         filePath: filePath,
@@ -163,25 +178,24 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
         await file.delete();
       }
 
+      AppLogger.recording(
+          'transcribe success: transcriptId=${result.transcriptId}');
       state = state.copyWith(
         transcribedCount: state.transcribedCount + 1,
         lastTranscript: result.text,
       );
     } catch (e) {
-      // エラー時はファイルを保持し、オフラインキューに追加
-      await _offlineQueueService.enqueue(
-        endpoint: '/api/segments/transcribe',
-        method: 'POST',
-        payload: {
-          'deviceId': _deviceId,
-          'sessionId': sessionId,
-          'segmentNo': segmentNo,
-          'startAt': startTime.toUtc().toIso8601String(),
-          'endAt': endTime.toUtc().toIso8601String(),
-          'filePath': filePath, // 後でアップロードするためパスを保持
-        },
+      // S2: ファイルパスをPendingTranscribeStoreに保存（multipart再送可能）
+      AppLogger.recording('transcribe failed, enqueueing retry', error: e);
+      await _pendingStore.add(
+        filePath: filePath,
+        deviceId: _deviceId,
+        sessionId: sessionId,
+        segmentNo: segmentNo,
+        startAt: startTime.toUtc(),
+        endAt: endTime.toUtc(),
       );
-      state = state.copyWith(error: '文字起こし失敗（キューに追加）: $e');
+      state = state.copyWith(error: '文字起こし失敗（リトライキューに追加）: $e');
     }
   }
 
@@ -202,17 +216,30 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
   }
 
   Future<void> startRecording() async {
+    // H2: deviceIdが未解決の場合は録音をブロック
+    if (_deviceId == 'loading') {
+      AppLogger.recording(
+          'startRecording BLOCKED: deviceId is still loading');
+      state = state.copyWith(
+          error: 'デバイスIDの取得中です。しばらく待ってから再試行してください。');
+      return;
+    }
+
     try {
+      AppLogger.recording('startRecording: requesting start');
       await _recordingService.startRecording();
     } catch (e) {
+      AppLogger.recording('startRecording FAILED', error: e);
       state = state.copyWith(error: e.toString());
     }
   }
 
   Future<void> stopRecording() async {
     try {
+      AppLogger.recording('stopRecording: requesting stop');
       await _recordingService.stopRecording();
     } catch (e) {
+      AppLogger.recording('stopRecording FAILED', error: e);
       state = state.copyWith(error: e.toString());
     }
   }
@@ -230,7 +257,7 @@ final recordingNotifierProvider =
     StateNotifierProvider<RecordingNotifier, RecordingState>((ref) {
   final recordingService = ref.watch(recordingServiceProvider);
   final transcribeService = ref.watch(transcribeServiceProvider);
-  final offlineQueueService = ref.watch(offlineQueueServiceProvider);
+  final pendingStore = ref.watch(pendingTranscribeStoreProvider);
   final deviceIdAsync = ref.watch(deviceIdProvider);
 
   // デバイスIDが取得できるまで待機
@@ -243,7 +270,7 @@ final recordingNotifierProvider =
   return RecordingNotifier(
     recordingService,
     transcribeService,
-    offlineQueueService,
+    pendingStore,
     deviceId,
   );
 });

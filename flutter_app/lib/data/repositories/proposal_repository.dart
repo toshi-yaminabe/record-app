@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../../core/errors.dart';
 import '../models/proposal_model.dart';
@@ -22,7 +23,9 @@ class ProposalRepository {
 
       final uri = Uri.parse('$baseUrl/api/proposals')
           .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
+      AppLogger.api('GET $uri');
       final response = await http.get(uri);
+      AppLogger.api('GET /api/proposals -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -37,8 +40,9 @@ class ProposalRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
+      AppLogger.api('GET /api/proposals FAILED', error: e, stack: stackTrace);
       throw NetworkException('ネットワークエラー', details: e.toString());
     }
   }
@@ -46,11 +50,13 @@ class ProposalRepository {
   /// 日次提案を生成
   Future<List<ProposalModel>> generateProposals(String dateKey) async {
     try {
+      AppLogger.api('POST /api/proposals dateKey=$dateKey');
       final response = await http.post(
         Uri.parse('$baseUrl/api/proposals'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'dateKey': dateKey}),
       );
+      AppLogger.api('POST /api/proposals -> ${response.statusCode}');
 
       if (response.statusCode == 201) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -65,8 +71,9 @@ class ProposalRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
+      AppLogger.api('POST /api/proposals FAILED', error: e, stack: stackTrace);
       throw NetworkException('ネットワークエラー', details: e.toString());
     }
   }
@@ -74,11 +81,13 @@ class ProposalRepository {
   /// 提案ステータス更新
   Future<void> updateProposalStatus(String id, String status) async {
     try {
+      AppLogger.api('PATCH /api/proposals/$id status=$status');
       final response = await http.patch(
         Uri.parse('$baseUrl/api/proposals/$id'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'status': status}),
       );
+      AppLogger.api('PATCH /api/proposals/$id -> ${response.statusCode}');
 
       if (response.statusCode != 200) {
         throw ApiException(
@@ -87,8 +96,10 @@ class ProposalRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
+      AppLogger.api('PATCH /api/proposals/$id FAILED',
+          error: e, stack: stackTrace);
       throw NetworkException('ネットワークエラー', details: e.toString());
     }
   }

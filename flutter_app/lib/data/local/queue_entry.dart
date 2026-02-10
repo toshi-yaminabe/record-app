@@ -6,7 +6,7 @@ class QueueEntry {
   final String payload; // JSON string
   final DateTime createdAt;
   final int retryCount;
-  final String status; // 'pending' | 'processing' | 'completed' | 'failed'
+  final String status; // 'pending' | 'dead_letter'
 
   const QueueEntry({
     this.id,

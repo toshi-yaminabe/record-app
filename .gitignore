@@ -35,3 +35,6 @@ yarn-error.log*
 *.swp
 *.swo
 *~
+
+# Test results (debug logs from device)
+test-results/

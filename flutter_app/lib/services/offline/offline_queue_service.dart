@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../../core/errors.dart';
 import '../../data/local/offline_queue_db.dart';
@@ -23,6 +24,7 @@ class OfflineQueueService {
     required String method,
     required Map<String, dynamic> payload,
   }) async {
+    AppLogger.queue('enqueue: $method $endpoint');
     final entry = QueueEntry(
       endpoint: endpoint,
       method: method,
@@ -43,6 +45,8 @@ class OfflineQueueService {
         final entry = await _db.dequeueNext();
         if (entry == null) break; // キューが空
 
+        AppLogger.queue(
+            'flush: processing entry#${entry.id} -> ${entry.endpoint}');
         final success = await _processEntry(entry);
         if (!success) {
           // ネットワークエラーなどで失敗した場合、フラッシュを中断
@@ -82,6 +86,9 @@ class OfflineQueueService {
           throw ApiException('Unsupported HTTP method: ${entry.method}');
       }
 
+      AppLogger.queue(
+          'flush: entry#${entry.id} -> HTTP ${response.statusCode}');
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
         // 成功: エントリを削除
         await _db.markCompleted(entry.id!);
@@ -106,10 +113,13 @@ class OfflineQueueService {
 
     if (newRetryCount > AppConstants.maxRetryCount) {
       // 最大リトライ回数超過: dead letterに移動（データ保持）
+      AppLogger.queue(
+          'dead_letter: entry#${entry.id} exceeded max retries');
       await _db.markDeadLetter(entry.id!);
       return true;
     } else {
-      // H4: ブロッキング排除 — 即座にmarkFailedして次回flushサイクルに委ねる
+      AppLogger.queue(
+          'retry: entry#${entry.id} retryCount=$newRetryCount');
       await _db.markFailed(entry.id!, newRetryCount);
       return false; // フラッシュを中断
     }

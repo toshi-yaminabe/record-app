@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:record/record.dart';
@@ -6,6 +7,10 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants.dart';
 
 /// バックグラウンドisolateのエントリポイント
+///
+/// NOTE: バックグラウンドisolateでは AppLogger は使えない
+/// （path_provider依存のファイル書き込みが不可能）。
+/// developer.log() で直接ログ出力する。
 @pragma('vm:entry-point')
 Future<void> onStart(ServiceInstance service) async {
   final handler = _BackgroundRecordingHandler(service);
@@ -57,9 +62,15 @@ class _BackgroundRecordingHandler {
   bool get isRecording => _isRecording;
   String? get currentSessionId => _currentSessionId;
 
+  void _log(String message, {Object? error}) {
+    developer.log('[REC-BG] $message',
+        name: 'record-app', error: error);
+  }
+
   Future<void> startRecording(String sessionId, String recordingsDir) async {
     if (_isRecording) return;
 
+    _log('startRecording sessionId=$sessionId');
     _currentSessionId = sessionId;
     _recordingsDir = recordingsDir;
     _isRecording = true;
@@ -79,6 +90,8 @@ class _BackgroundRecordingHandler {
     final sessionId = _currentSessionId;
     if (sessionId == null) return;
 
+    _log('stopRecording sessionId=$sessionId');
+
     _segmentTimer?.cancel();
     _segmentTimer = null;
 
@@ -87,6 +100,7 @@ class _BackgroundRecordingHandler {
 
     if (path != null && _currentSegmentPath != null) {
       _segmentCount++;
+      _log('segment completed path=$path segmentNo=$_segmentCount');
       _service.invoke('onSegmentCompleted', {
         'sessionId': sessionId,
         'filePath': path,
@@ -139,6 +153,7 @@ class _BackgroundRecordingHandler {
 
       if (path != null) {
         _segmentCount++;
+        _log('segment completed path=$path segmentNo=$_segmentCount (duration)');
         _service.invoke('onSegmentCompleted', {
           'sessionId': _currentSessionId!,
           'filePath': path,
@@ -151,6 +166,7 @@ class _BackgroundRecordingHandler {
 
       await _startNewSegment();
     } catch (e) {
+      _log('onSegmentTimeout ERROR', error: e);
       // エラー時にUI側に通知
       _service.invoke('onError', {
         'message': 'セグメント処理エラー: $e',

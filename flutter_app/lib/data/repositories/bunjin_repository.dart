@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../../core/errors.dart';
 import '../models/bunjin_model.dart';
@@ -13,13 +14,19 @@ class BunjinRepository {
   /// 文人一覧取得
   Future<List<BunjinModel>> getBunjins(String userId) async {
     try {
+      AppLogger.api('GET /api/bunjins?userId=$userId');
       final response = await http.get(
         Uri.parse('$baseUrl/api/bunjins?userId=$userId'),
       );
+      AppLogger.api('GET /api/bunjins -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body) as List;
-        return jsonList.map((json) => BunjinModel.fromJson(json as Map<String, dynamic>)).toList();
+        // S1: エンベロープ展開 — バックエンドは { bunjins: [...] } で返す
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final List<dynamic> bunjins = json['bunjins'] as List;
+        return bunjins
+            .map((b) => BunjinModel.fromJson(b as Map<String, dynamic>))
+            .toList();
       } else {
         throw ApiException(
           'Failed to get bunjins',
@@ -27,9 +34,11 @@ class BunjinRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
-      throw NetworkException('Network error during bunjins retrieval', details: e.toString());
+      AppLogger.api('GET /api/bunjins FAILED', error: e, stack: stackTrace);
+      throw NetworkException('Network error during bunjins retrieval',
+          details: e.toString());
     }
   }
 
@@ -42,23 +51,28 @@ class BunjinRepository {
     required String color,
     String? icon,
   }) async {
+    final bodyJson = jsonEncode({
+      'userId': userId,
+      'slug': slug,
+      'displayName': displayName,
+      'description': description,
+      'color': color,
+      'icon': icon,
+    });
+
     try {
+      AppLogger.api('POST /api/bunjins body=$bodyJson');
       final response = await http.post(
         Uri.parse('$baseUrl/api/bunjins'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'userId': userId,
-          'slug': slug,
-          'displayName': displayName,
-          'description': description,
-          'color': color,
-          'icon': icon,
-        }),
+        body: bodyJson,
       );
+      AppLogger.api('POST /api/bunjins -> ${response.statusCode}');
 
       if (response.statusCode == 201) {
+        // S1: エンベロープ展開 — バックエンドは { bunjin: {...} } で返す
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        return BunjinModel.fromJson(json);
+        return BunjinModel.fromJson(json['bunjin'] as Map<String, dynamic>);
       } else {
         throw ApiException(
           'Failed to create bunjin',
@@ -66,9 +80,11 @@ class BunjinRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
-      throw NetworkException('Network error during bunjin creation', details: e.toString());
+      AppLogger.api('POST /api/bunjins FAILED', error: e, stack: stackTrace);
+      throw NetworkException('Network error during bunjin creation',
+          details: e.toString());
     }
   }
 
@@ -87,15 +103,20 @@ class BunjinRepository {
       if (color != null) updates['color'] = color;
       if (icon != null) updates['icon'] = icon;
 
+      final bodyJson = jsonEncode(updates);
+      AppLogger.api('PATCH /api/bunjins/$bunjinId body=$bodyJson');
+
       final response = await http.patch(
         Uri.parse('$baseUrl/api/bunjins/$bunjinId'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(updates),
+        body: bodyJson,
       );
+      AppLogger.api('PATCH /api/bunjins/$bunjinId -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
+        // S1: エンベロープ展開 — バックエンドは { bunjin: {...} } で返す
         final json = jsonDecode(response.body) as Map<String, dynamic>;
-        return BunjinModel.fromJson(json);
+        return BunjinModel.fromJson(json['bunjin'] as Map<String, dynamic>);
       } else {
         throw ApiException(
           'Failed to update bunjin',
@@ -103,18 +124,23 @@ class BunjinRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
-      throw NetworkException('Network error during bunjin update', details: e.toString());
+      AppLogger.api('PATCH /api/bunjins/$bunjinId FAILED',
+          error: e, stack: stackTrace);
+      throw NetworkException('Network error during bunjin update',
+          details: e.toString());
     }
   }
 
   /// 文人削除
   Future<void> deleteBunjin(String bunjinId) async {
     try {
+      AppLogger.api('DELETE /api/bunjins/$bunjinId');
       final response = await http.delete(
         Uri.parse('$baseUrl/api/bunjins/$bunjinId'),
       );
+      AppLogger.api('DELETE /api/bunjins/$bunjinId -> ${response.statusCode}');
 
       if (response.statusCode != 204 && response.statusCode != 200) {
         throw ApiException(
@@ -123,9 +149,12 @@ class BunjinRepository {
           details: response.body,
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
-      throw NetworkException('Network error during bunjin deletion', details: e.toString());
+      AppLogger.api('DELETE /api/bunjins/$bunjinId FAILED',
+          error: e, stack: stackTrace);
+      throw NetworkException('Network error during bunjin deletion',
+          details: e.toString());
     }
   }
 }
