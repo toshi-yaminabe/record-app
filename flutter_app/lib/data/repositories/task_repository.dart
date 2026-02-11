@@ -25,7 +25,8 @@ class TaskRepository {
       final response = await http.get(uri);
 
       if (response.statusCode == 200) {
-        final List<dynamic> jsonList = jsonDecode(response.body) as List;
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final jsonList = body['tasks'] as List<dynamic>;
         return jsonList.map((json) => TaskModel.fromJson(json as Map<String, dynamic>)).toList();
       } else {
         throw ApiException(
