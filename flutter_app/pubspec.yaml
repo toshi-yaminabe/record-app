@@ -26,6 +26,7 @@ dependencies:
 
   # HTTP (文字起こしAPI用)
   http: ^1.2.2
+  http_parser: ^4.1.0
 
   # 永続化・DB
   shared_preferences: ^2.3.4
