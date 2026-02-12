@@ -12,11 +12,11 @@ class BunjinRepository {
   BunjinRepository({this.baseUrl = ApiConfig.baseUrl});
 
   /// 文人一覧取得
-  Future<List<BunjinModel>> getBunjins(String userId) async {
+  Future<List<BunjinModel>> getBunjins() async {
     try {
-      AppLogger.api('GET /api/bunjins?userId=$userId');
+      AppLogger.api('GET /api/bunjins');
       final response = await http.get(
-        Uri.parse('$baseUrl/api/bunjins?userId=$userId'),
+        Uri.parse('$baseUrl/api/bunjins'),
       );
       AppLogger.api('GET /api/bunjins -> ${response.statusCode}');
 

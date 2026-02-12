@@ -43,7 +43,7 @@ class BunjinNotifier extends StateNotifier<BunjinState> {
   Future<void> fetchBunjins() async {
     state = state.copyWith(isLoading: true);
     try {
-      final bunjins = await _repository.getBunjins(AppConstants.mockUserId);
+      final bunjins = await _repository.getBunjins();
       state = BunjinState(bunjins: bunjins, isLoading: false);
     } catch (e) {
       state = BunjinState(error: e.toString(), isLoading: false);
