@@ -237,6 +237,18 @@ model Memory {
   @@map("memories")
 }
 
+/// ユーザー設定（APIキー等）
+model UserSettings {
+  id           String   @id @default(cuid())
+  userId       String   @unique @map("user_id")
+  geminiApiKey String?  @map("gemini_api_key") // AES-256-GCM暗号化済み
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("user_settings")
+}
+
 /// 音声削除ログ
 model AudioDeletionLog {
   id        String   @id @default(cuid())
