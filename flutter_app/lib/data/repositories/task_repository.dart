@@ -13,17 +13,16 @@ class TaskRepository {
 
   /// タスク一覧取得
   Future<List<TaskModel>> getTasks({
-    required String userId,
     String? bunjinId,
     String? status,
   }) async {
     try {
-      final queryParams = <String, String>{'userId': userId};
+      final queryParams = <String, String>{};
       if (bunjinId != null) queryParams['bunjinId'] = bunjinId;
       if (status != null) queryParams['status'] = status;
 
-      final uri =
-          Uri.parse('$baseUrl/api/tasks').replace(queryParameters: queryParams);
+      final uri = Uri.parse('$baseUrl/api/tasks')
+          .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
       AppLogger.api('GET $uri');
       final response = await http.get(uri);
       AppLogger.api('GET /api/tasks -> ${response.statusCode}');

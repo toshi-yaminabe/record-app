@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma.js'
 import { listBunjins, createBunjin } from '@/lib/services/bunjin-service.js'
 import { errorResponse } from '@/lib/errors.js'
 
@@ -13,6 +14,13 @@ import { errorResponse } from '@/lib/errors.js'
  */
 export async function GET() {
   try {
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const bunjins = await listBunjins()
     return NextResponse.json({ bunjins })
   } catch (error) {
@@ -27,6 +35,13 @@ export async function GET() {
  */
 export async function POST(request) {
   try {
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { slug, displayName, description, color, icon } = body
 

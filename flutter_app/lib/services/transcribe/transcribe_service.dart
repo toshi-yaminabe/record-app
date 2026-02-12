@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../../core/app_logger.dart';
 
 /// 文字起こしサービス
@@ -38,11 +39,12 @@ class TranscribeService {
     final uri = Uri.parse('$baseUrl/api/transcribe');
     final request = http.MultipartRequest('POST', uri);
 
-    // ファイルを追加
+    // ファイルを追加（MIMEタイプを明示的に指定）
     request.files.add(await http.MultipartFile.fromPath(
       'audio',
       filePath,
       filename: 'audio.m4a',
+      contentType: MediaType('audio', 'mp4'),
     ));
 
     // メタデータを追加

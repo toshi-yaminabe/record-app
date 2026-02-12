@@ -44,7 +44,6 @@ class TaskNotifier extends StateNotifier<TaskState> {
     state = state.copyWith(isLoading: true);
     try {
       final tasks = await _repository.getTasks(
-        userId: AppConstants.mockUserId,
         bunjinId: bunjinId,
         status: status,
       );
