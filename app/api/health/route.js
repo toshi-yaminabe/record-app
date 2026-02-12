@@ -4,7 +4,7 @@
 
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma.js'
-import { isGeminiAvailable } from '@/lib/gemini.js'
+import { isGeminiAvailableAsync } from '@/lib/gemini.js'
 
 /**
  * GET /api/health - システム状態確認
@@ -25,8 +25,8 @@ export async function GET() {
       }
     }
 
-    // Gemini API確認
-    geminiOk = isGeminiAvailable()
+    // Gemini API確認（環境変数 + DB保存キー）
+    geminiOk = await isGeminiAvailableAsync()
 
     const ok = databaseOk && geminiOk
 
