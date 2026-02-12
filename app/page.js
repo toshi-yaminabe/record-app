@@ -5,7 +5,7 @@ import { Header } from './components/header'
 import { TabNavigation } from './components/tab-navigation'
 import { ArchitectureView } from './features/architecture/architecture-view'
 import { HistoryView } from './features/history/history-view'
-import { InstallView } from './features/install/install-view'
+import { SettingsView } from './features/settings/settings-view'
 import { TaskListView } from './features/tasks/task-list-view'
 import { DailyCheckinView } from './features/daily/daily-checkin-view'
 import { WeeklyReviewView } from './features/weekly/weekly-review-view'
@@ -27,7 +27,7 @@ export default function Dashboard() {
     { id: 'swls', label: 'SWLS', icon: '💭' },
     { id: 'sessions', label: 'セッション', icon: '🎙️' },
     { id: 'history', label: '履歴', icon: '📝' },
-    { id: 'settings', label: '開発者', icon: '📲' },
+    { id: 'settings', label: '設定', icon: '⚙️' },
   ]
 
   const progress = 57
@@ -81,7 +81,7 @@ export default function Dashboard() {
       {activeTab === 'swls' && <SwlsFormView />}
       {activeTab === 'sessions' && <SessionListView />}
       {activeTab === 'history' && <HistoryView />}
-      {activeTab === 'settings' && <InstallView />}
+      {activeTab === 'settings' && <SettingsView />}
 
       <footer className="footer">
         <p>Record App Dashboard • Built with Next.js + Gemini AI</p>
