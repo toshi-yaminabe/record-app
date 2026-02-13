@@ -2,13 +2,12 @@
   "name": "record-app",
   "version": "1.4.1",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.mjs"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -26,6 +25,6 @@
     "prisma": "^6.2.1"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "node prisma/seed.mjs"
   }
 }
