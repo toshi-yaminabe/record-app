@@ -25,7 +25,7 @@ export async function GET(request) {
 
     const memories = await listMemories({ limit })
 
-    return NextResponse.json({ success: true, memories })
+    return NextResponse.json({ memories })
   } catch (error) {
     return errorResponse(error)
   }
@@ -62,7 +62,7 @@ export async function POST(request) {
       sourceRefs: sourceRefs || undefined,
     })
 
-    return NextResponse.json({ success: true, memory }, { status: 201 })
+    return NextResponse.json({ memory }, { status: 201 })
   } catch (error) {
     return errorResponse(error)
   }

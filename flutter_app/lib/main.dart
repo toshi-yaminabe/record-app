@@ -22,12 +22,15 @@ Future<void> main() async {
   // ログ基盤初期化
   await AppLogger.init();
 
-  // H2: baseUrlが空の場合は警告ログ出力
+  // H2: baseUrlが空の場合はアプリ起動をブロック
   if (ApiConfig.baseUrl.isEmpty) {
     AppLogger.lifecycle(
-      'WARNING: API_BASE_URL is empty. '
+      'SEVERE: API_BASE_URL is empty. '
       'Build with --dart-define-from-file=env/prod.json to set it.',
     );
+    assert(false, 'API_BASE_URL is not configured. Cannot start app.');
+    runApp(const ConfigErrorApp());
+    return;
   }
 
   // deviceIdを事前解決（起動時に1回だけ）
@@ -69,7 +72,7 @@ Future<void> main() async {
 
   runApp(ProviderScope(
     overrides: [
-      deviceIdProvider.overrideWith((_) async => deviceId),
+      deviceIdProvider.overrideWithValue(deviceId),
       offlineQueueServiceProvider.overrideWithValue(offlineQueueService),
       pendingTranscribeStoreProvider
           .overrideWithValue(pendingTranscribeStore),
@@ -91,6 +94,42 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: const HomePage(),
+    );
+  }
+}
+
+/// API_BASE_URL未設定時のエラー画面
+class ConfigErrorApp extends StatelessWidget {
+  const ConfigErrorApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                const Text(
+                  '設定エラー',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'API_BASE_URL が設定されていません。\n'
+                  '--dart-define-from-file=env/prod.json を指定してビルドしてください。',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

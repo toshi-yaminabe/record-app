@@ -12,6 +12,12 @@ class ConnectivityMonitor {
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   bool _wasOffline = false;
 
+  /// デバウンスタイマー（接続イベントの連続発火を抑制）
+  Timer? _debounceTimer;
+
+  /// デバウンス遅延（ミリ秒）
+  static const int _debounceDurationMs = 1000;
+
   ConnectivityMonitor({
     required OfflineQueueService queueService,
     TranscribeRetryService? transcribeRetryService,
@@ -23,14 +29,27 @@ class ConnectivityMonitor {
   /// 監視開始
   void startMonitoring() {
     _subscription = _connectivity.onConnectivityChanged.listen((results) {
-      _onConnectivityChanged(results);
+      _onConnectivityChangedDebounced(results);
     });
 
-    // 初回状態確認
-    _connectivity.checkConnectivity().then(_onConnectivityChanged);
+    // 初回状態確認（エラーハンドリング付き）
+    _connectivity.checkConnectivity().then(_onConnectivityChanged).catchError(
+        (Object error, StackTrace stack) {
+      AppLogger.lifecycle('initial connectivity check failed',
+          error: error, stack: stack);
+    });
   }
 
-  // H1: flush()をawait + try-catchで保護
+  /// デバウンス付き接続変更ハンドラ
+  void _onConnectivityChangedDebounced(List<ConnectivityResult> results) {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(
+      const Duration(milliseconds: _debounceDurationMs),
+      () => _onConnectivityChanged(results),
+    );
+  }
+
+  /// 接続変更処理
   Future<void> _onConnectivityChanged(
       List<ConnectivityResult> results) async {
     final isOnline = results.any((result) =>
@@ -42,14 +61,12 @@ class ConnectivityMonitor {
         'connectivity changed: $results wasOffline=$_wasOffline');
 
     if (isOnline && _wasOffline) {
-      // オフライン→オンライン復帰時にキューをフラッシュ
+      // オフライン→オンライン復帰時のみキューをフラッシュ
       AppLogger.queue('flush triggered by connectivity restore');
       try {
         await _queueService.flush();
-        // S2: 文字起こしリトライも実行
         await _transcribeRetryService?.retryPending();
       } catch (e, stackTrace) {
-        // ログ出力のみ（次回接続時にリトライ）
         AppLogger.queue('flush/retry failed on connectivity restore',
             error: e, stack: stackTrace);
       }
@@ -60,6 +77,8 @@ class ConnectivityMonitor {
 
   /// 監視停止
   void stopMonitoring() {
+    _debounceTimer?.cancel();
+    _debounceTimer = null;
     _subscription?.cancel();
     _subscription = null;
   }

@@ -94,7 +94,14 @@ class TranscribeService {
     final uri =
         Uri.parse('$baseUrl/api/transcribe').replace(queryParameters: params);
     AppLogger.api('GET $uri');
-    final response = await http.get(uri);
+    final http.Response response;
+    try {
+      response =
+          await http.get(uri).timeout(const Duration(seconds: 15));
+    } on TimeoutException {
+      AppLogger.api('GET /api/transcribe TIMEOUT');
+      throw TranscribeException('文字起こし履歴の取得がタイムアウトしました');
+    }
     AppLogger.api('GET /api/transcribe -> ${response.statusCode}');
 
     if (response.statusCode != 200) {

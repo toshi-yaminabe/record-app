@@ -24,7 +24,7 @@ export async function GET(request, { params }) {
 
     const session = await getSession(id)
 
-    return NextResponse.json(session)
+    return NextResponse.json({ session })
   } catch (error) {
     return errorResponse(error)
   }
@@ -47,7 +47,7 @@ export async function PATCH(request, { params }) {
 
     const session = await stopSession(id)
 
-    return NextResponse.json(session)
+    return NextResponse.json({ session })
   } catch (error) {
     return errorResponse(error)
   }

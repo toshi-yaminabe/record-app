@@ -4,6 +4,7 @@
  */
 
 import { NextResponse } from 'next/server'
+import { prisma } from '@/lib/prisma.js'
 import { getRuleTree, replaceRuleTree } from '@/lib/services/rule-tree-service.js'
 import { errorResponse } from '@/lib/errors.js'
 
@@ -13,6 +14,13 @@ import { errorResponse } from '@/lib/errors.js'
  */
 export async function GET() {
   try {
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const tree = await getRuleTree()
     return NextResponse.json(tree)
   } catch (error) {
@@ -27,6 +35,13 @@ export async function GET() {
  */
 export async function PUT(request) {
   try {
+    if (!prisma) {
+      return NextResponse.json(
+        { error: 'Database not configured' },
+        { status: 503 }
+      )
+    }
+
     const body = await request.json()
     const { nodes } = body
 

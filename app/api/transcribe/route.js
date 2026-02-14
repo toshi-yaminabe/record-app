@@ -52,19 +52,7 @@ export async function POST(request) {
     // Gemini Flashで文字起こし
     const text = await transcribeAudio(buffer, audioFile.type || 'audio/mp4')
 
-    // 1. DBに保存（Transcript - 既存動作）
-    const transcript = await prisma.transcript.create({
-      data: {
-        deviceId,
-        sessionId,
-        segmentNo,
-        startAt: startAt ? new Date(startAt) : new Date(),
-        endAt: endAt ? new Date(endAt) : new Date(),
-        text
-      }
-    })
-
-    // 2. Sessionを検索または作成
+    // Sessionを検索または作成
     let session = await prisma.session.findFirst({
       where: { deviceId, userId: MOCK_USER_ID, status: SESSION_STATUS.ACTIVE },
       orderBy: { startedAt: 'desc' },
@@ -76,9 +64,21 @@ export async function POST(request) {
       })
     }
 
-    // 3. Segment作成
-    const segment = await prisma.segment.create({
-      data: {
+    // Segment upsert（冪等性確保: 同一sessionId+segmentNoで重複送信されても安全）
+    const segment = await prisma.segment.upsert({
+      where: {
+        sessionId_segmentNo: {
+          sessionId: session.id,
+          segmentNo,
+        },
+      },
+      update: {
+        text,
+        startAt: startAt ? new Date(startAt) : new Date(),
+        endAt: endAt ? new Date(endAt) : new Date(),
+        sttStatus: STT_STATUS.DONE,
+      },
+      create: {
         sessionId: session.id,
         userId: MOCK_USER_ID,
         segmentNo,
@@ -90,10 +90,13 @@ export async function POST(request) {
     })
 
     return NextResponse.json({
-      success: true,
-      transcriptId: transcript.id,
-      segmentId: segment.id,
-      text
+      segment: {
+        id: segment.id,
+        sessionId: session.id,
+        segmentNo,
+        text,
+        sttStatus: segment.sttStatus,
+      },
     })
   } catch (error) {
     console.error('Transcribe error:', error)
@@ -112,21 +115,12 @@ export async function GET(request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const deviceId = searchParams.get('deviceId')
     const sessionId = searchParams.get('sessionId')
 
-    // ユーザー所有のセッションIDでスコープ
-    const userSessions = await prisma.session.findMany({
-      where: { userId: MOCK_USER_ID },
-      select: { id: true },
-    })
-    const userSessionIds = userSessions.map(s => s.id)
-
-    const where = { sessionId: { in: userSessionIds } }
-    if (deviceId) where.deviceId = deviceId
+    const where = { userId: MOCK_USER_ID }
     if (sessionId) where.sessionId = sessionId
 
-    const transcripts = await prisma.transcript.findMany({
+    const segments = await prisma.segment.findMany({
       where,
       orderBy: [
         { sessionId: 'desc' },
@@ -135,9 +129,9 @@ export async function GET(request) {
       take: 100
     })
 
-    return NextResponse.json({ transcripts })
+    return NextResponse.json({ segments })
   } catch (error) {
-    console.error('Get transcripts error:', error)
+    console.error('Get segments error:', error)
     return errorResponse(error)
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../core/app_logger.dart';
@@ -17,7 +18,7 @@ class BunjinRepository {
       AppLogger.api('GET /api/bunjins');
       final response = await http.get(
         Uri.parse('$baseUrl/api/bunjins'),
-      );
+      ).timeout(const Duration(seconds: 15));
       AppLogger.api('GET /api/bunjins -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -34,6 +35,9 @@ class BunjinRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('GET /api/bunjins TIMEOUT');
+      throw NetworkException('分人一覧取得がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('GET /api/bunjins FAILED', error: e, stack: stackTrace);
@@ -66,7 +70,7 @@ class BunjinRepository {
         Uri.parse('$baseUrl/api/bunjins'),
         headers: {'Content-Type': 'application/json'},
         body: bodyJson,
-      );
+      ).timeout(const Duration(seconds: 30));
       AppLogger.api('POST /api/bunjins -> ${response.statusCode}');
 
       if (response.statusCode == 201) {
@@ -80,6 +84,9 @@ class BunjinRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('POST /api/bunjins TIMEOUT');
+      throw NetworkException('分人作成がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('POST /api/bunjins FAILED', error: e, stack: stackTrace);
@@ -110,7 +117,7 @@ class BunjinRepository {
         Uri.parse('$baseUrl/api/bunjins/$bunjinId'),
         headers: {'Content-Type': 'application/json'},
         body: bodyJson,
-      );
+      ).timeout(const Duration(seconds: 30));
       AppLogger.api('PATCH /api/bunjins/$bunjinId -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -124,6 +131,9 @@ class BunjinRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('PATCH /api/bunjins/$bunjinId TIMEOUT');
+      throw NetworkException('分人更新がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('PATCH /api/bunjins/$bunjinId FAILED',
@@ -139,7 +149,7 @@ class BunjinRepository {
       AppLogger.api('DELETE /api/bunjins/$bunjinId');
       final response = await http.delete(
         Uri.parse('$baseUrl/api/bunjins/$bunjinId'),
-      );
+      ).timeout(const Duration(seconds: 15));
       AppLogger.api('DELETE /api/bunjins/$bunjinId -> ${response.statusCode}');
 
       if (response.statusCode != 204 && response.statusCode != 200) {
@@ -149,6 +159,9 @@ class BunjinRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('DELETE /api/bunjins/$bunjinId TIMEOUT');
+      throw NetworkException('分人削除がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('DELETE /api/bunjins/$bunjinId FAILED',

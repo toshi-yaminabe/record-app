@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../core/app_logger.dart';
@@ -28,7 +29,7 @@ class SessionRepository {
         Uri.parse('$baseUrl/api/sessions'),
         headers: {'Content-Type': 'application/json'},
         body: bodyJson,
-      );
+      ).timeout(const Duration(seconds: 30));
       AppLogger.api(
           'POST /api/sessions -> ${response.statusCode} body=${response.body}');
 
@@ -43,6 +44,9 @@ class SessionRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('POST /api/sessions TIMEOUT');
+      throw NetworkException('セッション作成がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('POST /api/sessions FAILED', error: e, stack: stackTrace);
@@ -57,7 +61,7 @@ class SessionRepository {
       AppLogger.api('GET /api/sessions/$sessionId');
       final response = await http.get(
         Uri.parse('$baseUrl/api/sessions/$sessionId'),
-      );
+      ).timeout(const Duration(seconds: 15));
       AppLogger.api(
           'GET /api/sessions/$sessionId -> ${response.statusCode}');
 
@@ -72,6 +76,9 @@ class SessionRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('GET /api/sessions/$sessionId TIMEOUT');
+      throw NetworkException('セッション取得がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('GET /api/sessions/$sessionId FAILED',
@@ -95,7 +102,7 @@ class SessionRepository {
         Uri.parse('$baseUrl/api/sessions/$sessionId'),
         headers: {'Content-Type': 'application/json'},
         body: bodyJson,
-      );
+      ).timeout(const Duration(seconds: 30));
       AppLogger.api(
           'PATCH /api/sessions/$sessionId -> ${response.statusCode}');
 
@@ -110,6 +117,9 @@ class SessionRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('PATCH /api/sessions/$sessionId TIMEOUT');
+      throw NetworkException('セッション完了がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('PATCH /api/sessions/$sessionId FAILED',
@@ -125,7 +135,7 @@ class SessionRepository {
       AppLogger.api('GET /api/sessions?userId=$userId');
       final response = await http.get(
         Uri.parse('$baseUrl/api/sessions?userId=$userId'),
-      );
+      ).timeout(const Duration(seconds: 15));
       AppLogger.api(
           'GET /api/sessions?userId=$userId -> ${response.statusCode}');
 
@@ -143,6 +153,9 @@ class SessionRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('GET /api/sessions TIMEOUT');
+      throw NetworkException('セッション一覧取得がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('GET /api/sessions FAILED', error: e, stack: stackTrace);

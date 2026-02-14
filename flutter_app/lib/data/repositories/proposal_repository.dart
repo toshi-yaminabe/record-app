@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../core/app_logger.dart';
@@ -24,7 +25,7 @@ class ProposalRepository {
       final uri = Uri.parse('$baseUrl/api/proposals')
           .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
       AppLogger.api('GET $uri');
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
       AppLogger.api('GET /api/proposals -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -40,6 +41,9 @@ class ProposalRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('GET /api/proposals TIMEOUT');
+      throw NetworkException('提案一覧取得がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('GET /api/proposals FAILED', error: e, stack: stackTrace);
@@ -55,7 +59,7 @@ class ProposalRepository {
         Uri.parse('$baseUrl/api/proposals'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'dateKey': dateKey}),
-      );
+      ).timeout(const Duration(seconds: 30));
       AppLogger.api('POST /api/proposals -> ${response.statusCode}');
 
       if (response.statusCode == 201) {
@@ -71,6 +75,9 @@ class ProposalRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('POST /api/proposals TIMEOUT');
+      throw NetworkException('提案生成がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('POST /api/proposals FAILED', error: e, stack: stackTrace);
@@ -86,7 +93,7 @@ class ProposalRepository {
         Uri.parse('$baseUrl/api/proposals/$id'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'status': status}),
-      );
+      ).timeout(const Duration(seconds: 30));
       AppLogger.api('PATCH /api/proposals/$id -> ${response.statusCode}');
 
       if (response.statusCode != 200) {
@@ -96,6 +103,9 @@ class ProposalRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('PATCH /api/proposals/$id TIMEOUT');
+      throw NetworkException('提案更新がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('PATCH /api/proposals/$id FAILED',

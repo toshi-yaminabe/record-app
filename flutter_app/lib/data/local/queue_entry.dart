@@ -1,12 +1,18 @@
+import '../../core/app_logger.dart';
+
 /// オフラインキューエントリモデル
 class QueueEntry {
+  /// ステータス定数
+  static const String statusPending = 'pending';
+  static const String statusDeadLetter = 'dead_letter';
+
   final int? id;
   final String endpoint;
   final String method; // 'POST' | 'PATCH' | 'DELETE'
   final String payload; // JSON string
   final DateTime createdAt;
   final int retryCount;
-  final String status; // 'pending' | 'dead_letter'
+  final String status; // statusPending | statusDeadLetter
 
   const QueueEntry({
     this.id,
@@ -15,7 +21,7 @@ class QueueEntry {
     required this.payload,
     required this.createdAt,
     this.retryCount = 0,
-    this.status = 'pending',
+    this.status = statusPending,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,8 +37,13 @@ class QueueEntry {
   }
 
   factory QueueEntry.fromMap(Map<String, dynamic> map) {
+    final id = map['id'] as int?;
+    if (id == null) {
+      AppLogger.db('QueueEntry.fromMap: id is null');
+      throw StateError('QueueEntry requires non-null id from database');
+    }
     return QueueEntry(
-      id: map['id'] as int?,
+      id: id,
       endpoint: map['endpoint'] as String,
       method: map['method'] as String,
       payload: map['payload'] as String,

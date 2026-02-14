@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../transcribe/transcribe_service.dart';
@@ -12,6 +13,12 @@ class TranscribeRetryService {
   final PendingTranscribeStore _store;
   final TranscribeService _transcribeService;
   bool _isRetrying = false;
+
+  /// 指数バックオフの基本遅延（ミリ秒）
+  static const int _baseDelayMs = 1000;
+
+  /// 指数バックオフの最大遅延（ミリ秒）
+  static const int _maxDelayMs = 60000;
 
   TranscribeRetryService({
     required PendingTranscribeStore store,
@@ -33,7 +40,6 @@ class TranscribeRetryService {
         final file = File(entry.filePath);
 
         if (!await file.exists()) {
-          // ファイルが存在しない → dead letter（データ回復不能）
           AppLogger.queue(
               'transcribe retry: entry#${entry.id} file not found, moving to dead_letter');
           await _store.markDeadLetter(entry.id);
@@ -66,9 +72,15 @@ class TranscribeRetryService {
                 'transcribe retry: entry#${entry.id} exceeded max retries, dead_letter');
             await _store.markDeadLetter(entry.id);
           } else {
+            // 指数バックオフ: baseDelay * 2^retryCount, capped at maxDelay
+            final delayMs = min(
+              _baseDelayMs * pow(2, entry.retryCount).toInt(),
+              _maxDelayMs,
+            );
             AppLogger.queue(
-                'transcribe retry: entry#${entry.id} failed, retryCount=$newRetryCount',
+                'transcribe retry: entry#${entry.id} failed, retryCount=$newRetryCount, backoff=${delayMs}ms',
                 error: e);
+            await Future.delayed(Duration(milliseconds: delayMs));
             await _store.markFailed(entry.id, newRetryCount);
             // ネットワークエラーの場合は残りのエントリもスキップ
             break;

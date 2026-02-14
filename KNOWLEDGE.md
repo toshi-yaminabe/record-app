@@ -1,7 +1,7 @@
 # record-app ナレッジ資料
 
-**最終更新:** 2026-02-12
-**バージョン:** v1.4.1 (Web v1.4.1 / Flutter v1.5.1+3)
+**最終更新:** 2026-02-14
+**バージョン:** Web v1.4.1 (package.json) / Flutter v1.5.2+4 (pubspec.yaml)
 
 ---
 
@@ -53,7 +53,7 @@ graph TB
 ```
 record-app/
 ├── app/                          # Next.js App Router
-│   ├── api/                      # APIルート (19エンドポイント)
+│   ├── api/                      # APIルート (20エンドポイント)
 │   │   ├── bunjins/              # 分人CRUD
 │   │   ├── cron/archive-tasks/   # タスク自動アーカイブ
 │   │   ├── health/               # ヘルスチェック
@@ -62,6 +62,7 @@ record-app/
 │   │   ├── rule-trees/           # ルールツリー編集・公開
 │   │   ├── segments/             # セグメント一覧・更新
 │   │   ├── sessions/             # セッション管理
+│   │   ├── settings/             # ユーザー設定 (Gemini APIキーのDB保存)
 │   │   ├── swls/                 # SWLS回答管理
 │   │   ├── tasks/                # タスクCRUD
 │   │   ├── transcribe/           # 音声文字起こし
@@ -73,11 +74,12 @@ record-app/
 │   ├── layout.js                 # ルートレイアウト
 │   └── error.js                  # エラーバウンダリ
 ├── lib/                          # バックエンド共通ライブラリ
-│   ├── prisma.js                 # Prismaクライアント初期化
-│   ├── gemini.js                 # Gemini API (STT + 提案生成)
-│   ├── constants.js              # 定数定義
-│   ├── errors.js                 # カスタムエラークラス
-│   ├── validators.js             # バリデーション (状態遷移・ルールツリー)
+│   ├── prisma.js                 # Prismaクライアント初期化 (Neon Serverless + PrismaNeon adapter)
+│   ├── gemini.js                 # Gemini API (STT + 提案生成, 環境変数 > DB保存キー)
+│   ├── crypto.js                 # AES-256-GCM暗号化 (APIキーのDB保存用)
+│   ├── constants.js              # 定数定義 (MOCK_USER_ID, ステータス, デフォルト分人)
+│   ├── errors.js                 # カスタムエラークラス (AppError, errorResponse)
+│   ├── validators.js             # バリデーション (状態遷移・ルールツリー・日付検証)
 │   └── services/                 # ビジネスロジック層
 │       ├── bunjin-service.js
 │       ├── memory-service.js
@@ -89,8 +91,9 @@ record-app/
 │       ├── task-service.js
 │       └── weekly-service.js
 ├── prisma/
-│   ├── schema.prisma             # DBスキーマ (12モデル)
-│   └── seed.js                   # 初期データ投入
+│   ├── schema.prisma             # DBスキーマ (14モデル)
+│   ├── seed.mjs                  # 初期データ投入 (ESM)
+│   └── migrations/               # Prismaマイグレーション
 ├── flutter_app/                  # Flutterモバイルアプリ
 │   └── lib/
 │       ├── main.dart             # アプリエントリポイント
@@ -98,8 +101,8 @@ record-app/
 │       ├── data/                 # モデル・リポジトリ・ローカルDB
 │       ├── presentation/         # UI (pages/providers/widgets)
 │       └── services/             # 録音・文字起こし・オフライン
-├── next.config.js                # Next.js設定
-├── vercel.json                   # Vercel関数設定
+├── next.config.mjs               # Next.js設定 (ESM, bodySizeLimit: 10mb)
+├── vercel.json                   # Vercel関数設定 (transcribe/proposals: 60s)
 └── package.json                  # v1.4.1
 ```
 
@@ -260,6 +263,12 @@ erDiagram
         datetime deletedAt
         string reason
     }
+
+    UserSettings {
+        string id PK
+        string userId UK
+        string geminiApiKey "AES-256-GCM暗号化済み"
+    }
 ```
 
 ### テーブル一覧
@@ -278,6 +287,7 @@ erDiagram
 | `weekly_executions` | 週次実行記録 | 提案の週次レビュー追跡 |
 | `swls_responses` | SWLS回答 | 主観的幸福度5問 (日次) |
 | `memories` | メモリー | 学習記録。追加のみ (append-only設計) |
+| `user_settings` | ユーザー設定 | Gemini APIキーのAES-256-GCM暗号化保存 |
 | `audio_deletion_logs` | 音声削除ログ | STT完了後の音声削除追跡 |
 
 ### 主要な制約とインデックス
@@ -552,6 +562,33 @@ ARCHIVED  |  NG  |  NG   |  NG  |   -
 
 ---
 
+### ユーザー設定
+
+| Method | Path | 説明 | 認証 |
+|--------|------|------|------|
+| GET | `/api/settings` | 設定取得 (APIキー有無のみ) | MOCK_USER_ID |
+| PUT | `/api/settings` | 設定更新 (APIキー保存) | MOCK_USER_ID |
+| DELETE | `/api/settings` | APIキー削除 | MOCK_USER_ID |
+
+**GET `/api/settings`**
+- レスポンス: `{ "settings": { "hasGeminiApiKey": true, "updatedAt": "..." } }`
+- APIキーの値は返さない（セキュリティ）
+
+**PUT `/api/settings`**
+- Body: `{ "geminiApiKey": "string" }`
+- AES-256-GCM暗号化してDB保存 (`lib/crypto.js`)
+- バリデーション: 10文字以上
+
+**DELETE `/api/settings`**
+- APIキーをnullに設定
+
+**Gemini APIキーの優先順位:**
+1. 環境変数 `GEMINI_API_KEY` (最優先)
+2. DB保存キー (`user_settings.gemini_api_key`, 復号して使用)
+3. どちらもなければ `null` → STTと提案生成が無効
+
+---
+
 ### Cron
 
 | Method | Path | 説明 | 認証 |
@@ -572,8 +609,14 @@ ARCHIVED  |  NG  |  NG   |  NG  |   -
 |--------|------|------|---------|
 | `DATABASE_URL` | Neon PostgreSQL接続文字列 | 必須 | `.env` / Vercel環境変数 |
 | `GEMINI_API_KEY` | Google Gemini APIキー (STT + 提案生成) | 必須 | `.env` / Vercel環境変数 |
+| `ENCRYPTION_KEY` | AES-256-GCM暗号化キー (32byte hex=64文字) | 任意 | `.env` / Vercel環境変数 |
 | `CRON_SECRET` | Cronジョブ認証トークン | 任意 | Vercel環境変数 |
 | `NODE_ENV` | 実行環境 (development/production) | 自動 | Next.js自動設定 |
+
+**ENCRYPTION_KEY について:**
+- 未設定時は `DATABASE_URL` のSHA256ハッシュをフォールバック使用
+- `lib/crypto.js` で `encrypt()` / `decrypt()` に使用
+- ユーザー設定のGemini APIキーをDBに暗号化保存する際に必要
 
 **DATABASE_URL 形式:**
 ```
@@ -596,7 +639,7 @@ postgresql://user:password@host/dbname?sslmode=require
 |---------|------|
 | `lib/constants.js` | `MOCK_USER_ID = 'mock-user-001'` |
 | `flutter_app/lib/core/constants.dart` | `AppConstants.mockUserId = 'mock-user-001'` |
-| `prisma/seed.js` | `MOCK_USER_ID = 'mock-user-001'` |
+| `prisma/seed.mjs` | `MOCK_USER_ID = 'mock-user-001'` |
 
 > 将来的に Supabase Auth 導入時に置き換え予定。
 
@@ -749,16 +792,25 @@ flowchart LR
 
 ## 7. 現在の問題点
 
+> 詳細な課題管理・対応履歴は [GitHub Issues](https://github.com/toshi-yaminabe/record-app/issues) で管理。
+> ローカル参照: **ISSUES.md** (アクティブ課題のサマリーのみ)。
+
 ### CRITICAL: 認証がモック
 
 - 全APIエンドポイントで `MOCK_USER_ID = 'mock-user-001'` をハードコードで使用
 - マルチユーザー対応不可
 - **対策**: Supabase Auth 導入予定
 
+### HIGH: Vercel本番DB接続
+
+- `lib/prisma.js` は Neon Serverless WebSocket + PrismaNeon adapter を使用
+- `DATABASE_URL` 未設定時は `prisma = null` → 全API 503エラー
+- Vercel環境変数に正しく設定されていない場合、`/api/health` で `database: false` が返る
+
 ### HIGH: 500エラーの脆弱性
 
 1. **DATABASE_URL 未設定時**: `prisma` が `null` になり、各エンドポイントで 503 チェックが必要
-2. **GEMINI_API_KEY 未設定時**: STTと提案生成が完全に無効化。`/api/health` で検知可能
+2. **GEMINI_API_KEY 未設定時**: STTと提案生成が無効化（ただしDB保存キーで代替可能）
 3. **Neon接続の不安定性**: サーバーレス環境でのコールドスタート時に接続タイムアウトの可能性
 
 ### MEDIUM: データ整合性
@@ -771,11 +823,11 @@ flowchart LR
 - 空文字列の場合、起動時は警告のみで動作を続行
 - 文字起こし呼び出し時に初めてエラーが発生 (ユーザー体験の問題)
 
-### LOW: Prisma接続方式
+### MEDIUM: バージョン不一致
 
-- `lib/prisma.js` で直接 `PrismaClient` を使用
-- `@prisma/adapter-neon` はパッケージ依存に含まれているが、prisma.js では使用されていない (schema.prismaに `previewFeatures = ["driverAdapters"]` もなし)
-- Neon WebSocket接続 (`ws` パッケージ) も未使用
+- `package.json`: v1.4.1
+- Flutter `pubspec.yaml`: v1.5.2+4
+- 統一が必要
 
 ### LOW: ルールツリー2パス作成の制限
 
@@ -804,7 +856,7 @@ npx prisma migrate dev
 npx prisma generate
 
 # 5. 初期データ投入
-node prisma/seed.js
+node prisma/seed.mjs
 
 # 6. 開発サーバー起動
 npm run dev

@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:uuid/uuid.dart';
 import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../../services/recording/recording_service.dart';
@@ -23,27 +21,29 @@ final transcribeServiceProvider = Provider<TranscribeService>((ref) {
 });
 
 /// オフラインキューサービスプロバイダー
+/// main.dartのProviderScope.overridesでインスタンスを注入する。
 final offlineQueueServiceProvider = Provider<OfflineQueueService>((ref) {
-  return OfflineQueueService();
+  throw UnimplementedError(
+    'offlineQueueServiceProvider must be overridden in ProviderScope',
+  );
 });
 
 /// 文字起こしリトライ専用ストアプロバイダー
+/// main.dartのProviderScope.overridesでインスタンスを注入する。
 final pendingTranscribeStoreProvider =
     Provider<PendingTranscribeStore>((ref) {
-  return PendingTranscribeStore();
+  throw UnimplementedError(
+    'pendingTranscribeStoreProvider must be overridden in ProviderScope',
+  );
 });
 
-/// デバイスIDプロバイダー（shared_preferencesで永続化）
-final deviceIdProvider = FutureProvider<String>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
-  String? deviceId = prefs.getString('device_id');
-
-  if (deviceId == null) {
-    deviceId = const Uuid().v4();
-    await prefs.setString('device_id', deviceId);
-  }
-
-  return deviceId;
+/// デバイスIDプロバイダー
+/// main.dartで事前取得した値をProviderScope.overridesで注入する。
+/// 直接アクセスすると例外が発生する（override必須）。
+final deviceIdProvider = Provider<String>((ref) {
+  throw UnimplementedError(
+    'deviceIdProvider must be overridden in ProviderScope with a pre-resolved value',
+  );
 });
 
 /// 録音状態
@@ -217,11 +217,11 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
 
   Future<void> startRecording() async {
     // H2: deviceIdが未解決の場合は録音をブロック
-    if (_deviceId == 'loading') {
+    if (_deviceId.isEmpty) {
       AppLogger.recording(
-          'startRecording BLOCKED: deviceId is still loading');
+          'startRecording BLOCKED: deviceId is empty');
       state = state.copyWith(
-          error: 'デバイスIDの取得中です。しばらく待ってから再試行してください。');
+          error: 'デバイスIDが取得できていません。アプリを再起動してください。');
       return;
     }
 
@@ -258,14 +258,7 @@ final recordingNotifierProvider =
   final recordingService = ref.watch(recordingServiceProvider);
   final transcribeService = ref.watch(transcribeServiceProvider);
   final pendingStore = ref.watch(pendingTranscribeStoreProvider);
-  final deviceIdAsync = ref.watch(deviceIdProvider);
-
-  // デバイスIDが取得できるまで待機
-  final deviceId = deviceIdAsync.when(
-    data: (id) => id,
-    loading: () => 'loading',
-    error: (_, __) => const Uuid().v4(),
-  );
+  final deviceId = ref.watch(deviceIdProvider);
 
   return RecordingNotifier(
     recordingService,

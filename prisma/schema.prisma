@@ -142,6 +142,7 @@ model Segment {
   bunjin           Bunjin?           @relation(fields: [bunjinId], references: [id])
   audioDeletionLog AudioDeletionLog?
 
+  @@unique([sessionId, segmentNo])
   @@index([sessionId])
   @@index([userId])
   @@map("segments")

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../core/app_logger.dart';
@@ -24,7 +25,7 @@ class TaskRepository {
       final uri = Uri.parse('$baseUrl/api/tasks')
           .replace(queryParameters: queryParams.isEmpty ? null : queryParams);
       AppLogger.api('GET $uri');
-      final response = await http.get(uri);
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
       AppLogger.api('GET /api/tasks -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -41,6 +42,9 @@ class TaskRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('GET /api/tasks TIMEOUT');
+      throw NetworkException('タスク一覧取得がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('GET /api/tasks FAILED', error: e, stack: stackTrace);
@@ -71,7 +75,7 @@ class TaskRepository {
         Uri.parse('$baseUrl/api/tasks'),
         headers: {'Content-Type': 'application/json'},
         body: bodyJson,
-      );
+      ).timeout(const Duration(seconds: 30));
       AppLogger.api('POST /api/tasks -> ${response.statusCode}');
 
       if (response.statusCode == 201) {
@@ -85,6 +89,9 @@ class TaskRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('POST /api/tasks TIMEOUT');
+      throw NetworkException('タスク作成がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('POST /api/tasks FAILED', error: e, stack: stackTrace);
@@ -115,7 +122,7 @@ class TaskRepository {
         Uri.parse('$baseUrl/api/tasks/$taskId'),
         headers: {'Content-Type': 'application/json'},
         body: bodyJson,
-      );
+      ).timeout(const Duration(seconds: 30));
       AppLogger.api('PATCH /api/tasks/$taskId -> ${response.statusCode}');
 
       if (response.statusCode == 200) {
@@ -129,6 +136,9 @@ class TaskRepository {
           details: response.body,
         );
       }
+    } on TimeoutException {
+      AppLogger.api('PATCH /api/tasks/$taskId TIMEOUT');
+      throw NetworkException('タスク更新がタイムアウトしました');
     } catch (e, stackTrace) {
       if (e is ApiException) rethrow;
       AppLogger.api('PATCH /api/tasks/$taskId FAILED',
