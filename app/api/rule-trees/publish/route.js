@@ -2,26 +2,10 @@
  * POST /api/rule-trees/publish - ルールツリー検証＆公開
  */
 
-import { NextResponse } from 'next/server'
+import { withApi } from '@/lib/middleware.js'
 import { publishRuleTree } from '@/lib/services/rule-tree-service.js'
-import { errorResponse } from '@/lib/errors.js'
 
-/**
- * POST /api/rule-trees/publish
- * ルールツリーを検証して公開
- * - サイクル検出
- * - 深度制限（max 10）
- * - 終端ノードがbunjinかチェック
- * - 新しい PublishedVersion を作成
- */
-export async function POST() {
-  try {
-    const publishedVersion = await publishRuleTree()
-
-    return NextResponse.json({
-      publishedVersion,
-    }, { status: 201 })
-  } catch (error) {
-    return errorResponse(error)
-  }
-}
+export const POST = withApi(async (request, { userId }) => {
+  const publishedVersion = await publishRuleTree(userId)
+  return { publishedVersion }
+})

@@ -39,7 +39,7 @@ jobs:
         working-directory: flutter_app
         run: |
           mkdir -p env
-          echo '{"API_BASE_URL":"${{ secrets.API_BASE_URL }}"}' > env/prod.json
+          echo '{"API_BASE_URL":"${{ secrets.API_BASE_URL }}","SUPABASE_URL":"${{ secrets.SUPABASE_URL }}","SUPABASE_ANON_KEY":"${{ secrets.SUPABASE_ANON_KEY }}"}' > env/prod.json
 
       - name: Build APK
         working-directory: flutter_app

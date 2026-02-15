@@ -1,137 +1,103 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { transcribeAudio } from '@/lib/gemini'
-import { MOCK_USER_ID, STT_STATUS, SESSION_STATUS } from '@/lib/constants'
-import { errorResponse } from '@/lib/errors'
+/**
+ * POST /api/transcribe - 音声文字起こし（非推奨: Storage + Edge Function に移行予定）
+ * GET  /api/transcribe - セグメント一覧取得
+ */
+
+import { withApi } from '@/lib/middleware.js'
+import { prisma } from '@/lib/prisma.js'
+import { transcribeAudio } from '@/lib/gemini.js'
+import { STT_STATUS, SESSION_STATUS } from '@/lib/constants.js'
+import { ValidationError, AppError } from '@/lib/errors.js'
 
 const MAX_AUDIO_SIZE = 6 * 1024 * 1024 // 6MB
 const ALLOWED_MIME = ['audio/mp4', 'audio/mpeg', 'audio/m4a', 'audio/aac', 'audio/wav']
 
-export async function POST(request) {
-  try {
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 503 }
-      )
-    }
+export const POST = withApi(async (request, { userId }) => {
+  // Deprecation警告
+  console.warn('[DEPRECATED] POST /api/transcribe — migrate to Storage + Edge Function process-audio')
 
-    const formData = await request.formData()
-    const audioFile = formData.get('audio')
-    const deviceId = formData.get('deviceId')
-    const sessionId = formData.get('sessionId')
-    const segmentNo = parseInt(formData.get('segmentNo') || '0', 10)
-    const startAt = formData.get('startAt')
-    const endAt = formData.get('endAt')
+  const formData = await request.formData()
+  const audioFile = formData.get('audio')
+  const deviceId = formData.get('deviceId')
+  const sessionId = formData.get('sessionId')
+  const segmentNo = parseInt(formData.get('segmentNo') || '0', 10)
+  const startAt = formData.get('startAt')
+  const endAt = formData.get('endAt')
 
-    if (!audioFile || !deviceId || !sessionId) {
-      return NextResponse.json(
-        { error: 'Missing required fields: audio, deviceId, sessionId' },
-        { status: 400 }
-      )
-    }
-
-    // 音声ファイル検証
-    if (audioFile.size > MAX_AUDIO_SIZE) {
-      return NextResponse.json(
-        { error: 'Audio file too large (max 6MB)' },
-        { status: 413 }
-      )
-    }
-    if (audioFile.type && !ALLOWED_MIME.includes(audioFile.type)) {
-      return NextResponse.json(
-        { error: 'Unsupported audio format' },
-        { status: 415 }
-      )
-    }
-
-    // 音声ファイルをバッファに変換
-    const arrayBuffer = await audioFile.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-
-    // Gemini Flashで文字起こし
-    const text = await transcribeAudio(buffer, audioFile.type || 'audio/mp4')
-
-    // Sessionを検索または作成
-    let session = await prisma.session.findFirst({
-      where: { deviceId, userId: MOCK_USER_ID, status: SESSION_STATUS.ACTIVE },
-      orderBy: { startedAt: 'desc' },
-    })
-
-    if (!session) {
-      session = await prisma.session.create({
-        data: { userId: MOCK_USER_ID, deviceId, status: SESSION_STATUS.ACTIVE },
-      })
-    }
-
-    // Segment upsert（冪等性確保: 同一sessionId+segmentNoで重複送信されても安全）
-    const segment = await prisma.segment.upsert({
-      where: {
-        sessionId_segmentNo: {
-          sessionId: session.id,
-          segmentNo,
-        },
-      },
-      update: {
-        text,
-        startAt: startAt ? new Date(startAt) : new Date(),
-        endAt: endAt ? new Date(endAt) : new Date(),
-        sttStatus: STT_STATUS.DONE,
-      },
-      create: {
-        sessionId: session.id,
-        userId: MOCK_USER_ID,
-        segmentNo,
-        startAt: startAt ? new Date(startAt) : new Date(),
-        endAt: endAt ? new Date(endAt) : new Date(),
-        text,
-        sttStatus: STT_STATUS.DONE,
-      },
-    })
-
-    return NextResponse.json({
-      segment: {
-        id: segment.id,
-        sessionId: session.id,
-        segmentNo,
-        text,
-        sttStatus: segment.sttStatus,
-      },
-    })
-  } catch (error) {
-    console.error('Transcribe error:', error)
-    return errorResponse(error)
+  if (!audioFile || !deviceId || !sessionId) {
+    throw new ValidationError('Missing required fields: audio, deviceId, sessionId')
   }
-}
 
-// 文字起こし履歴を取得
-export async function GET(request) {
-  try {
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 503 }
-      )
-    }
-
-    const { searchParams } = new URL(request.url)
-    const sessionId = searchParams.get('sessionId')
-
-    const where = { userId: MOCK_USER_ID }
-    if (sessionId) where.sessionId = sessionId
-
-    const segments = await prisma.segment.findMany({
-      where,
-      orderBy: [
-        { sessionId: 'desc' },
-        { segmentNo: 'asc' }
-      ],
-      take: 100
-    })
-
-    return NextResponse.json({ segments })
-  } catch (error) {
-    console.error('Get segments error:', error)
-    return errorResponse(error)
+  if (audioFile.size > MAX_AUDIO_SIZE) {
+    throw new AppError('Audio file too large (max 6MB)', 413)
   }
-}
+  if (audioFile.type && !ALLOWED_MIME.includes(audioFile.type)) {
+    throw new AppError('Unsupported audio format', 415)
+  }
+
+  const arrayBuffer = await audioFile.arrayBuffer()
+  const buffer = Buffer.from(arrayBuffer)
+  const text = await transcribeAudio(buffer, audioFile.type || 'audio/mp4', userId)
+
+  let session = await prisma.session.findFirst({
+    where: { deviceId, userId, status: SESSION_STATUS.ACTIVE },
+    orderBy: { startedAt: 'desc' },
+  })
+
+  if (!session) {
+    session = await prisma.session.create({
+      data: { userId, deviceId, status: SESSION_STATUS.ACTIVE },
+    })
+  }
+
+  const segment = await prisma.segment.upsert({
+    where: {
+      sessionId_segmentNo: { sessionId: session.id, segmentNo },
+    },
+    update: {
+      text,
+      startAt: startAt ? new Date(startAt) : new Date(),
+      endAt: endAt ? new Date(endAt) : new Date(),
+      sttStatus: STT_STATUS.DONE,
+    },
+    create: {
+      sessionId: session.id,
+      userId,
+      segmentNo,
+      startAt: startAt ? new Date(startAt) : new Date(),
+      endAt: endAt ? new Date(endAt) : new Date(),
+      text,
+      sttStatus: STT_STATUS.DONE,
+    },
+  })
+
+  return {
+    segment: {
+      id: segment.id,
+      sessionId: session.id,
+      segmentNo,
+      text,
+      sttStatus: segment.sttStatus,
+    },
+    _deprecated: 'This endpoint is deprecated. Use Storage upload + Edge Function process-audio instead.',
+  }
+}, { rateLimit: { requests: 10, window: '1 m' } })
+
+export const GET = withApi(async (request, { userId }) => {
+  const { searchParams } = new URL(request.url)
+  const sessionId = searchParams.get('sessionId')
+
+  const where = { userId }
+  if (sessionId) where.sessionId = sessionId
+
+  const segments = await prisma.segment.findMany({
+    where,
+    orderBy: [
+      { sessionId: 'desc' },
+      { segmentNo: 'asc' },
+    ],
+    take: 100,
+  })
+
+  return { segments }
+})

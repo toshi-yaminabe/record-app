@@ -1,57 +1,24 @@
 /**
- * /api/swls - SWLS回答取得・更新
+ * GET  /api/swls - SWLS回答取得
+ * POST /api/swls - SWLS回答作成/更新
  */
 
-import { NextResponse } from 'next/server'
-import { errorResponse } from '@/lib/errors.js'
+import { withApi } from '@/lib/middleware.js'
 import { getSwlsResponse, upsertSwlsResponse } from '@/lib/services/swls-service.js'
 import { getTodayDateKey } from '@/lib/validators.js'
-import { prisma } from '@/lib/prisma.js'
 
-/**
- * GET /api/swls?dateKey=YYYY-MM-DD - SWLS回答取得
- */
-export async function GET(request) {
-  try {
-    if (!prisma) {
-      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
-    }
+export const GET = withApi(async (request, { userId }) => {
+  const { searchParams } = new URL(request.url)
+  const dateKey = searchParams.get('dateKey') || getTodayDateKey()
 
-    const { searchParams } = new URL(request.url)
-    const dateKey = searchParams.get('dateKey') || getTodayDateKey()
+  const response = await getSwlsResponse(userId, dateKey)
+  return { response }
+})
 
-    const response = await getSwlsResponse(dateKey)
+export const POST = withApi(async (request, { userId }) => {
+  const body = await request.json()
+  const { dateKey = getTodayDateKey(), q1, q2, q3, q4, q5 } = body
 
-    return NextResponse.json({ success: true, response })
-  } catch (error) {
-    return errorResponse(error)
-  }
-}
-
-/**
- * POST /api/swls - SWLS回答作成/更新
- * Body: { dateKey?: string, q1?: string, q2?: string, q3?: string, q4?: string, q5?: string }
- */
-export async function POST(request) {
-  try {
-    if (!prisma) {
-      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
-    }
-
-    const body = await request.json()
-    const { dateKey = getTodayDateKey(), q1, q2, q3, q4, q5 } = body
-
-    const response = await upsertSwlsResponse({
-      dateKey,
-      q1,
-      q2,
-      q3,
-      q4,
-      q5,
-    })
-
-    return NextResponse.json({ success: true, response })
-  } catch (error) {
-    return errorResponse(error)
-  }
-}
+  const response = await upsertSwlsResponse(userId, { dateKey, q1, q2, q3, q4, q5 })
+  return { response }
+})

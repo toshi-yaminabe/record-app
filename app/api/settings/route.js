@@ -1,118 +1,62 @@
 /**
- * /api/settings - ユーザー設定管理
+ * GET    /api/settings - ユーザー設定取得
+ * PUT    /api/settings - ユーザー設定更新
+ * DELETE /api/settings - APIキー削除
  */
 
-import { NextResponse } from 'next/server'
+import { withApi } from '@/lib/middleware.js'
 import { prisma } from '@/lib/prisma.js'
-import { MOCK_USER_ID } from '@/lib/constants.js'
-import { encrypt, decrypt } from '@/lib/crypto.js'
-import { errorResponse } from '@/lib/errors.js'
+import { encrypt } from '@/lib/crypto.js'
+import { ValidationError } from '@/lib/errors.js'
 
-/**
- * GET /api/settings - ユーザー設定取得
- * APIキーは存在有無のみ返す（値は返さない）
- */
-export async function GET() {
-  try {
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 503 }
-      )
-    }
+export const GET = withApi(async (request, { userId }) => {
+  const settings = await prisma.userSettings.findUnique({
+    where: { userId },
+  })
 
-    const settings = await prisma.userSettings.findUnique({
-      where: { userId: MOCK_USER_ID },
-    })
-
-    return NextResponse.json({
-      settings: {
-        hasGeminiApiKey: !!settings?.geminiApiKey,
-        updatedAt: settings?.updatedAt ?? null,
-      },
-    })
-  } catch (error) {
-    return errorResponse(error)
+  return {
+    settings: {
+      hasGeminiApiKey: !!settings?.geminiApiKey,
+      updatedAt: settings?.updatedAt ?? null,
+    },
   }
-}
+})
 
-/**
- * PUT /api/settings - ユーザー設定更新
- * Body: { geminiApiKey?: string }
- */
-export async function PUT(request) {
-  try {
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 503 }
-      )
+export const PUT = withApi(async (request, { userId }) => {
+  const body = await request.json()
+  const { geminiApiKey } = body
+
+  if (geminiApiKey !== undefined && geminiApiKey !== null) {
+    if (typeof geminiApiKey !== 'string') {
+      throw new ValidationError('geminiApiKey must be a string')
     }
-
-    const body = await request.json()
-    const { geminiApiKey } = body
-
-    // APIキーの基本バリデーション
-    if (geminiApiKey !== undefined && geminiApiKey !== null) {
-      if (typeof geminiApiKey !== 'string') {
-        return NextResponse.json(
-          { error: 'geminiApiKey must be a string' },
-          { status: 400 }
-        )
-      }
-      if (geminiApiKey.length > 0 && geminiApiKey.length < 10) {
-        return NextResponse.json(
-          { error: 'Invalid API key format' },
-          { status: 400 }
-        )
-      }
+    if (geminiApiKey.length > 0 && geminiApiKey.length < 10) {
+      throw new ValidationError('Invalid API key format')
     }
-
-    // 暗号化して保存
-    const encryptedKey = geminiApiKey ? encrypt(geminiApiKey) : null
-
-    const settings = await prisma.userSettings.upsert({
-      where: { userId: MOCK_USER_ID },
-      update: {
-        geminiApiKey: encryptedKey,
-      },
-      create: {
-        userId: MOCK_USER_ID,
-        geminiApiKey: encryptedKey,
-      },
-    })
-
-    return NextResponse.json({
-      settings: {
-        hasGeminiApiKey: !!settings.geminiApiKey,
-        updatedAt: settings.updatedAt,
-      },
-    })
-  } catch (error) {
-    return errorResponse(error)
   }
-}
 
-/**
- * DELETE /api/settings - APIキーを削除
- */
-export async function DELETE() {
-  try {
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 503 }
-      )
-    }
+  const encryptedKey = geminiApiKey ? encrypt(geminiApiKey) : null
 
-    await prisma.userSettings.upsert({
-      where: { userId: MOCK_USER_ID },
-      update: { geminiApiKey: null },
-      create: { userId: MOCK_USER_ID },
-    })
+  const settings = await prisma.userSettings.upsert({
+    where: { userId },
+    update: { geminiApiKey: encryptedKey },
+    create: { userId, geminiApiKey: encryptedKey },
+  })
 
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    return errorResponse(error)
+  return {
+    settings: {
+      hasGeminiApiKey: !!settings.geminiApiKey,
+      updatedAt: settings.updatedAt,
+    },
   }
-}
+})
+
+export const DELETE = withApi(async (request, { userId }) => {
+  await prisma.userSettings.upsert({
+    where: { userId },
+    update: { geminiApiKey: null },
+    create: { userId },
+  })
+
+  return { deleted: true }
+})

@@ -1,54 +1,19 @@
 /**
- * セッションAPI - 詳細取得・停止
+ * GET   /api/sessions/[id] - セッション詳細取得
+ * PATCH /api/sessions/[id] - セッション停止
  */
 
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { errorResponse } from '@/lib/errors'
-import { getSession, stopSession } from '@/lib/services/session-service'
+import { withApi } from '@/lib/middleware.js'
+import { getSession, stopSession } from '@/lib/services/session-service.js'
 
-/**
- * GET /api/sessions/:id
- * セッション詳細を取得
- */
-export async function GET(request, { params }) {
-  try {
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 503 }
-      )
-    }
+export const GET = withApi(async (request, { userId, params }) => {
+  const { id } = params
+  const session = await getSession(userId, id)
+  return { session }
+})
 
-    const { id } = await params
-
-    const session = await getSession(id)
-
-    return NextResponse.json({ session })
-  } catch (error) {
-    return errorResponse(error)
-  }
-}
-
-/**
- * PATCH /api/sessions/:id
- * セッションを停止
- */
-export async function PATCH(request, { params }) {
-  try {
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 503 }
-      )
-    }
-
-    const { id } = await params
-
-    const session = await stopSession(id)
-
-    return NextResponse.json({ session })
-  } catch (error) {
-    return errorResponse(error)
-  }
-}
+export const PATCH = withApi(async (request, { userId, params }) => {
+  const { id } = params
+  const session = await stopSession(userId, id)
+  return { session }
+})

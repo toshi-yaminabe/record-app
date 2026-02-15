@@ -1,34 +1,39 @@
 /**
- * セグメントAPI - 一覧取得
+ * GET  /api/segments - セグメント一覧取得
+ * POST /api/segments - セグメント作成（PENDINGステータス）
  */
 
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { errorResponse } from '@/lib/errors'
-import { listSegments } from '@/lib/services/segment-service'
+import { withApi } from '@/lib/middleware.js'
+import { listSegments, createSegment } from '@/lib/services/segment-service.js'
+import { ValidationError } from '@/lib/errors.js'
 
-/**
- * GET /api/segments
- * セグメント一覧を取得
- */
-export async function GET(request) {
-  try {
-    if (!prisma) {
-      return NextResponse.json(
-        { error: 'Database not configured' },
-        { status: 503 }
-      )
-    }
+export const GET = withApi(async (request, { userId }) => {
+  const { searchParams } = new URL(request.url)
+  const sessionId = searchParams.get('sessionId')
+  const rawLimit = parseInt(searchParams.get('limit') || '100', 10)
+  const limit = (Number.isFinite(rawLimit) && rawLimit >= 1) ? Math.min(rawLimit, 200) : 100
 
-    const { searchParams } = new URL(request.url)
-    const sessionId = searchParams.get('sessionId')
-    const rawLimit = parseInt(searchParams.get('limit') || '100', 10)
-    const limit = (Number.isFinite(rawLimit) && rawLimit >= 1) ? Math.min(rawLimit, 200) : 100
+  const segments = await listSegments(userId, { sessionId, limit })
+  return { segments }
+})
 
-    const segments = await listSegments({ sessionId, limit })
+export const POST = withApi(async (request, { userId }) => {
+  const body = await request.json()
+  const { sessionId, segmentNo, startAt, endAt, storageObjectPath } = body
 
-    return NextResponse.json({ segments })
-  } catch (error) {
-    return errorResponse(error)
+  if (!sessionId) {
+    throw new ValidationError('sessionId is required')
   }
-}
+  if (segmentNo === undefined || segmentNo === null) {
+    throw new ValidationError('segmentNo is required')
+  }
+
+  const segment = await createSegment(userId, {
+    sessionId,
+    segmentNo,
+    startAt: startAt || new Date().toISOString(),
+    endAt: endAt || new Date().toISOString(),
+    storageObjectPath,
+  })
+  return { segment }
+})

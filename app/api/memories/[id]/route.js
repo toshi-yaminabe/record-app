@@ -1,37 +1,23 @@
 /**
- * /api/memories/[id] - メモリー更新
- */
-
-import { NextResponse } from 'next/server'
-import { errorResponse, ValidationError } from '@/lib/errors.js'
-import { updateMemoryText } from '@/lib/services/memory-service.js'
-import { prisma } from '@/lib/prisma.js'
-
-/**
  * PATCH /api/memories/[id] - メモリーテキスト更新
- * Body: { text: string }
  */
-export async function PATCH(request, { params }) {
-  try {
-    if (!prisma) {
-      return NextResponse.json({ error: 'Database not configured' }, { status: 503 })
-    }
 
-    const { id } = await params
-    const body = await request.json()
-    const { text } = body
+import { withApi } from '@/lib/middleware.js'
+import { updateMemoryText } from '@/lib/services/memory-service.js'
+import { ValidationError } from '@/lib/errors.js'
 
-    if (!text || typeof text !== 'string' || text.trim().length === 0) {
-      throw new ValidationError('Text is required and must be a non-empty string')
-    }
-    if (text.length > 50000) {
-      throw new ValidationError('Text exceeds maximum length of 50000 characters')
-    }
+export const PATCH = withApi(async (request, { userId, params }) => {
+  const { id } = params
+  const body = await request.json()
+  const { text } = body
 
-    const memory = await updateMemoryText(id, text.trim())
-
-    return NextResponse.json({ success: true, memory })
-  } catch (error) {
-    return errorResponse(error)
+  if (!text || typeof text !== 'string' || text.trim().length === 0) {
+    throw new ValidationError('text is required and must be a non-empty string')
   }
-}
+  if (text.length > 50000) {
+    throw new ValidationError('text must be at most 50000 characters')
+  }
+
+  const memory = await updateMemoryText(userId, id, text.trim())
+  return { memory }
+})
