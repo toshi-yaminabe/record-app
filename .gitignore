@@ -36,5 +36,8 @@ yarn-error.log*
 *.swo
 *~
 
+# MCP config (contains API keys)
+.mcp.json
+
 # Test results (debug logs from device)
 test-results/

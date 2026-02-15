@@ -1,7 +1,7 @@
 # record-app ナレッジ資料
 
-**最終更新:** 2026-02-14
-**バージョン:** Web v1.4.1 (package.json) / Flutter v1.5.2+4 (pubspec.yaml)
+**最終更新:** 2026-02-15
+**バージョン:** Web v1.5.2 (package.json) / Flutter v1.5.2+4 (pubspec.yaml)
 
 ---
 
@@ -15,6 +15,7 @@
 6. [外部サービス依存](#6-外部サービス依存)
 7. [現在の問題点](#7-現在の問題点)
 8. [セットアップ手順](#8-セットアップ手順)
+9. [UX体験定義と技術的負債マトリクス](#9-ux体験定義と技術的負債マトリクス)
 
 ---
 
@@ -103,7 +104,7 @@ record-app/
 │       └── services/             # 録音・文字起こし・オフライン
 ├── next.config.mjs               # Next.js設定 (ESM, bodySizeLimit: 10mb)
 ├── vercel.json                   # Vercel関数設定 (transcribe/proposals: 60s)
-└── package.json                  # v1.4.1
+└── package.json                  # v1.5.2
 ```
 
 ### 技術スタック
@@ -473,7 +474,7 @@ ARCHIVED  |  NG  |  NG   |  NG  |   -
 - Body: `{ "dateKey": "YYYY-MM-DD" }`
 - Vercel maxDuration: 60秒
 - 処理: その日のDONEセグメント取得 -> テキスト結合 -> Gemini生成 -> DB保存
-- 生成内容: SUMMARY x1 + TASK x最大3
+- 生成内容: SUMMARY x1 + TASK x最大3 (実装は2タイプのみ: SUMMARY / TASK)
 - レスポンス: `{ "proposals": [...] }` (201)
 
 **PATCH `/api/proposals/:id`**
@@ -793,46 +794,43 @@ flowchart LR
 ## 7. 現在の問題点
 
 > 詳細な課題管理・対応履歴は [GitHub Issues](https://github.com/toshi-yaminabe/record-app/issues) で管理。
-> ローカル参照: **ISSUES.md** (アクティブ課題のサマリーのみ)。
+> ローカル参照: **ISSUES.md** (アクティブ課題のサマリーのみ + UXコンテキスト)。
 
-### CRITICAL: 認証がモック
+### CRITICAL
 
-- 全APIエンドポイントで `MOCK_USER_ID = 'mock-user-001'` をハードコードで使用
-- マルチユーザー対応不可
-- **対策**: Supabase Auth 導入予定
+- **#4 認証がモック**: 全APIで `MOCK_USER_ID` ハードコード。Supabase Auth 導入予定
+- **#26 ミドルウェア層の欠如**: 認証/DB確認/バリデーション/レートリミットが20 APIに散在（`if (!prisma)` 30箇所重複）
+- **#27 テストカバレッジ5%**: 20 APIのうちテストあり1つのみ。CI/CD 0%。Flutterテスト0個
+- **#28 レートリミット未導入**: Gemini API呼び出しエンドポイントにコスト攻撃リスク
 
-### HIGH: Vercel本番DB接続
+### HIGH
 
-- `lib/prisma.js` は Neon Serverless WebSocket + PrismaNeon adapter を使用
-- `DATABASE_URL` 未設定時は `prisma = null` → 全API 503エラー
-- Vercel環境変数に正しく設定されていない場合、`/api/health` で `database: false` が返る
+- **#29 AudioDeletionLog未実装**: スキーマ定義のみ、削除ログ書き込み未実装（プライバシー要件未達）
+- **#30 オフラインキュー2DB統合**: `offline_queue_db` + `pending_transcribe_store` 分離による一貫性リスク
+- **#31 IPC readyハンドシェイク**: 5秒タイムアウトが低スペック端末で不足
+- **#32 Flutter通信セキュリティ**: HTTPS未強制、SQLite平文保存
 
-### HIGH: 500エラーの脆弱性
+### MEDIUM
 
-1. **DATABASE_URL 未設定時**: `prisma` が `null` になり、各エンドポイントで 503 チェックが必要
-2. **GEMINI_API_KEY 未設定時**: STTと提案生成が無効化（ただしDB保存キーで代替可能）
-3. **Neon接続の不安定性**: サーバーレス環境でのコールドスタート時に接続タイムアウトの可能性
+- **#33 Web 10タブ整理**: 開発者向けタブ混在 → 5タブに簡略化可能
+- **#34 コード重複パターン**: Hook/Repository/Provider の重複（合計390行削減可能）
+- **#35 console.log散在**: 14ファイル33箇所 → 構造化ログ化
 
-### MEDIUM: データ整合性
+### LOW
 
-- `Transcript` テーブルと `Segment` テーブルの二重管理 (後方互換のため)
-- `/api/transcribe` で両方に書き込むが、`Transcript.sessionId` は文字列型で `Session.id` との外部キー制約なし
+- **#36 CSS-in-JS肥大化**: settings-view.js CSS 48%
+- **#37 ドキュメント精度**: バージョン表記、Section 7解決済み未反映
 
-### MEDIUM: Flutter API_BASE_URL 設定
+### 解決済み（2026-02-14バッチ修正）
 
-- 空文字列の場合、起動時は警告のみで動作を続行
-- 文字起こし呼び出し時に初めてエラーが発生 (ユーザー体験の問題)
-
-### MEDIUM: バージョン不一致
-
-- `package.json`: v1.4.1
-- Flutter `pubspec.yaml`: v1.5.2+4
-- 統一が必要
-
-### LOW: ルールツリー2パス作成の制限
-
-- `replaceRuleTree` は2パスで作成 (ルートノード -> 子ノード)
-- 3階層以上のネストでは、第2パスの子ノードが第1パスの子ノードを親に指定できないケースがある
+以下は #5〜#25 で解決済み:
+- ~~DB接続503チェック~~ (#5)、~~エンベロープ不一致~~ (#6)、~~オフラインキュー~~ (#7)
+- ~~API_BASE_URL起動ブロック~~ (#8)、~~タイムアウト不統一~~ (#9)、~~ステータス不一致~~ (#10)
+- ~~deviceId二重初期化~~ (#11)、~~flush fire-and-forget~~ (#12)、~~複数インスタンス~~ (#13)
+- ~~Transcript二重管理~~ (#14)、~~バージョン不一致~~ (#15)、~~ENCRYPTION_KEY~~ (#16)
+- ~~ルールツリー2パス~~ (#17)、~~SQLite try-catch~~ (#18)、~~SQLite onUpgrade~~ (#19)
+- ~~GEMINI_API_KEY~~ (#20)、~~QueueEntry~~ (#21)、~~transcribe冪等性~~ (#22)
+- ~~接続デバウンス~~ (#23)、~~markCompleted 4xx~~ (#24)、~~force-unwrap~~ (#25)
 
 ---
 
@@ -926,3 +924,86 @@ vercel deploy
 | learning | 学習 | #f59e0b | school | 勉強・スキルアップ |
 
 seed実行時に5件作成。カスタム分人は最大3件追加可能 (計8件上限)。
+
+---
+
+## 9. UX体験定義と技術的負債マトリクス
+
+> 2026-02-15 UX起点技術的負債調査で策定。4視点（アーキテクチャ/品質/セキュリティ/簡略化）のエージェントチームが調査。
+
+### 9.1 UX体験定義（E1-E5）
+
+本アプリの根幹は **24時間（16時間セッション）バックグラウンド録音**。ユーザーは朝Startを押すだけで、アプリが終日耳を傾ける。各分人（仕事/家庭/自分/コミュニティ/自由枠）に「今日何があったかを全て把握している執事」が生まれる。
+
+| # | 体験 | 概要 | ユーザー操作 |
+|---|------|------|-------------|
+| E1 | 常に聴いている | 16時間バックグラウンド録音。10分/無音で自動分割。オフラインでも途切れない | 朝Start（10秒） |
+| E2 | 分人別に整理される | ルールツリーで自動分人割当。セッション中ルール不変 | なし（自動） |
+| E3 | 執事が一手を出す | 1日分のテキストを蒸留しAIが最小アクション提案。回復 or 一歩前進。反省や長文ではない | 夕方に承認/却下（2分） |
+| E4 | 軽く振り返る | 「やったか？」にYes/Noで答えるだけ。崩れパターンが言語化される | 週末Yes/No（5分） |
+| E5 | 執事が育つ | 採用メモリーが蓄積（append-only、新情報優先）。使うほど自分専用の執事になる | なし（自動） |
+
+**1日のフロー:**
+```
+朝（10秒）   Startボタン → バックグラウンド録音開始
+終日（0秒）   自動で録音・分割・STT・分人割当が回り続ける
+夕方（2分）   録音停止 → 執事が蒸留 → 提案を承認/却下
+週末（5分）   「やったか？」Yes/No → 崩れパターンが見える
+```
+
+### 9.2 コア要件（削ってはいけない）
+
+| 要件 | 体験 | 実装 | 理由 |
+|------|------|------|------|
+| FGSバックグラウンド録音 | E1 | RecordingService + BackgroundRecordingHandler | 16時間連続録音の根幹 |
+| 10分/無音自動分割 | E1 | BackgroundRecordingHandler | セグメント粒度の基盤 |
+| オフラインキュー | E1 | OfflineQueueService + SQLite | 電波断でも録音が止まらない |
+| STTパイプライン | E1 | Gemini API (transcribeAudio) | 音声→テキスト変換 |
+| ルールツリー | E2 | RuleTreeService + RuleTreeNode | 自動分人割当の条件分岐 |
+| PublishedVersion | E2 | JSONスナップショット | セッション中のルール不変を保証 |
+| 音声短期保持→即削除 | E1 | (要実装: AudioDeletionLog) | プライバシー要件 |
+| メモリー蓄積 | E5 | Memory (append-only) | 執事の学習基盤 |
+
+### 9.3 技術的負債マトリクス
+
+| Issue | Severity | UX影響 | カテゴリ | 修正コスト | 簡略化効果 |
+|-------|----------|--------|---------|-----------|-----------|
+| #4 認証モック | CRITICAL | E1-E5 | セキュリティ | XL | 本番運用の前提条件 |
+| #26 ミドルウェア不在 | CRITICAL | E1-E5 | アーキテクチャ | L | 30箇所の重複→1箇所に |
+| #27 テスト5% | CRITICAL | E1-E5 | 品質 | L | デプロイ信頼性向上 |
+| #28 レートリミット0 | CRITICAL | E1,E3 | セキュリティ | M | コスト攻撃防止 |
+| #29 AudioDeletionLog | HIGH | E1 | セキュリティ | M | プライバシー要件達成 |
+| #30 オフライン2DB | HIGH | E1 | アーキテクチャ | M | 449行→300行（33%減） |
+| #31 IPC タイムアウト | HIGH | E1 | アーキテクチャ | S | 起動失敗の削減 |
+| #32 Flutter通信 | HIGH | E1,E5 | セキュリティ | M | ローカルデータ保護 |
+| #33 Web 10タブ | MEDIUM | E2-E4 | 簡略化 | M | 10→5タブ（50%減） |
+| #34 コード重複 | MEDIUM | 保守性 | 簡略化 | L | 390行削減 |
+| #35 console.log | MEDIUM | 保守性 | 品質 | M | 本番ログ制御 |
+| #36 CSS肥大 | LOW | 保守性 | 簡略化 | S | CSS分離で可読性向上 |
+| #37 ドキュメント | LOW | 開発者体験 | ドキュメント | S | 即時修正可 |
+
+### 9.4 簡略化ロードマップ（UX維持×複雑さ削減）
+
+**Phase 1: セキュリティ基盤（#4 → #26 → #28）**
+- Supabase Auth導入 → ミドルウェア層構築 → レートリミット追加
+- 全ての前提条件。これなしに本番運用不可
+
+**Phase 2: 品質ゲート（#27 → #29）**
+- E1-E5最小テスト5本 + GitHub Actions CI
+- AudioDeletionLog実装（プライバシー要件）
+
+**Phase 3: コア体験の堅牢化（#31 → #30 → #32）**
+- IPC タイムアウト延長（S: 即効性高い）
+- オフラインDB統合（M: 33%コード削減）
+- Flutter通信暗号化
+
+**Phase 4: 簡略化・保守性（#33 → #34 → #35 → #36 → #37）**
+- Web タブ整理 → コード重複解消 → ログ統一 → CSS分離 → ドキュメント修正
+- UXに直接影響しないが開発速度を向上
+
+### 9.5 調査で判明した事実
+
+- **Proposalタイプ**: KNOWLEDGE.md等で「4タイプ」と記載される箇所があるが、実装は **2タイプ（SUMMARY / TASK）のみ**（`lib/constants.js:38-41`）
+- **PendingTranscribeStore**: 設計段階で参照はあるが、ファイルとして未実装の可能性あり
+- **RecordingService IPC簡素化**: 調査の結果、5つのStreamSubscription + readyハンドシェイクは**明示性が高くバグ追跡が容易**であり、簡素化は**E1リスク大のため非推奨**
+- **PublishedVersion treeJson + RuleTreeNode二重管理**: treeJsonはセッション実行用スナップショット、RuleTreeNodeはドラフト編集用。役割分離は妥当だが、参照先の明確化が必要
