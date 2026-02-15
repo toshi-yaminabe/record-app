@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/proposal_model.dart';
 import '../../data/repositories/proposal_repository.dart';
+import 'recording_provider.dart' show authenticatedClientProvider;
 
 /// 提案リポジトリプロバイダー
 final proposalRepositoryProvider = Provider<ProposalRepository>((ref) {
-  return ProposalRepository();
+  final client = ref.watch(authenticatedClientProvider);
+  return ProposalRepository(client: client);
 });
 
 /// 提案状態

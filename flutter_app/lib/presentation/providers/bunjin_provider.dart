@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/constants.dart';
 import '../../data/models/bunjin_model.dart';
 import '../../data/repositories/bunjin_repository.dart';
+import 'recording_provider.dart' show authenticatedClientProvider;
 
 /// 文人リポジトリプロバイダー
 final bunjinRepositoryProvider = Provider<BunjinRepository>((ref) {
-  return BunjinRepository();
+  final client = ref.watch(authenticatedClientProvider);
+  return BunjinRepository(client: client);
 });
 
 /// 文人状態
@@ -60,7 +61,6 @@ class BunjinNotifier extends StateNotifier<BunjinState> {
   }) async {
     try {
       final newBunjin = await _repository.createBunjin(
-        userId: AppConstants.mockUserId,
         slug: slug,
         displayName: displayName,
         description: description,

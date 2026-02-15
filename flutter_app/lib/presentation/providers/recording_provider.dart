@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_logger.dart';
 import '../../core/constants.dart';
+import '../../data/repositories/authenticated_client.dart';
 import '../../services/recording/recording_service.dart';
 import '../../services/transcribe/transcribe_service.dart';
 import '../../services/offline/offline_queue_service.dart';
@@ -16,8 +17,15 @@ final recordingServiceProvider = Provider<RecordingService>((ref) {
 });
 
 /// 文字起こしサービスプロバイダー
+/// main.dartのProviderScope.overridesでインスタンスを注入する。
 final transcribeServiceProvider = Provider<TranscribeService>((ref) {
   return TranscribeService(baseUrl: ApiConfig.baseUrl);
+});
+
+/// 認証済みHTTPクライアントプロバイダー
+/// main.dartのProviderScope.overridesでインスタンスを注入する。
+final authenticatedClientProvider = Provider<AuthenticatedClient>((ref) {
+  return AuthenticatedClient(baseUrl: ApiConfig.baseUrl);
 });
 
 /// オフラインキューサービスプロバイダー
@@ -152,7 +160,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
   }
 
   /// S2: 文字起こしして、成功したらローカルファイルを削除。
-  /// 失敗時はPendingTranscribeStoreに保存（multipartリトライ可能）。
+  /// 失敗時はPendingTranscribeStoreに保存。
   Future<void> _transcribeAndDelete({
     required String filePath,
     required String sessionId,
@@ -179,13 +187,13 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
       }
 
       AppLogger.recording(
-          'transcribe success: transcriptId=${result.transcriptId}');
+          'transcribe success: segmentId=${result.segmentId}');
       state = state.copyWith(
         transcribedCount: state.transcribedCount + 1,
         lastTranscript: result.text,
       );
     } catch (e) {
-      // S2: ファイルパスをPendingTranscribeStoreに保存（multipart再送可能）
+      // S2: ファイルパスをPendingTranscribeStoreに保存
       AppLogger.recording('transcribe failed, enqueueing retry', error: e);
       await _pendingStore.add(
         filePath: filePath,

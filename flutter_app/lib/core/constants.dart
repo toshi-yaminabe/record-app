@@ -1,9 +1,5 @@
 /// アプリ定数
 class AppConstants {
-  // ユーザーID（モック）
-  // CRITICAL: バックエンドと一致させること
-  static const String mockUserId = 'mock-user-001';
-
   // 録音設定
   static const int segmentDurationMinutes = 10;
   static const int sampleRate = 16000;
@@ -28,6 +24,19 @@ class ApiConfig {
   // または: --dart-define=API_BASE_URL=https://your-app.vercel.app
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
+    defaultValue: '',
+  );
+}
+
+/// Supabase設定
+class SupabaseConfig {
+  static const String url = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: '',
+  );
+
+  static const String anonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
     defaultValue: '',
   );
 }

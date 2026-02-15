@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/app_logger.dart';
-import '../../core/constants.dart';
 import '../../data/models/session_model.dart';
 import '../../data/repositories/session_repository.dart';
-import 'recording_provider.dart' show deviceIdProvider;
+import 'recording_provider.dart' show deviceIdProvider, authenticatedClientProvider;
 
 /// セッションリポジトリプロバイダー
 final sessionRepositoryProvider = Provider<SessionRepository>((ref) {
-  return SessionRepository();
+  final client = ref.watch(authenticatedClientProvider);
+  return SessionRepository(client: client);
 });
 
 /// セッション状態
@@ -45,12 +45,11 @@ class SessionNotifier extends StateNotifier<SessionState> {
     this._deviceId,
   ) : super(const SessionState());
 
-  /// セッション作成
+  /// セッション作成（userIdはJWTから自動取得）
   Future<SessionModel?> createSession() async {
-    // H2: deviceIdが未解決の場合はセッション作成をブロック
-    if (_deviceId == 'loading' || _deviceId == 'error') {
+    if (_deviceId.isEmpty) {
       AppLogger.lifecycle(
-          'createSession BLOCKED: deviceId=$_deviceId');
+          'createSession BLOCKED: deviceId is empty');
       state = SessionState(
           error: 'デバイスIDの取得中です。しばらく待ってから再試行してください。',
           isLoading: false);
@@ -60,7 +59,6 @@ class SessionNotifier extends StateNotifier<SessionState> {
     state = state.copyWith(isLoading: true);
     try {
       final session = await _repository.createSession(
-        userId: AppConstants.mockUserId,
         deviceId: _deviceId,
       );
       state = SessionState(currentSession: session, isLoading: false);
@@ -95,13 +93,7 @@ class SessionNotifier extends StateNotifier<SessionState> {
 final sessionNotifierProvider =
     StateNotifierProvider<SessionNotifier, SessionState>((ref) {
   final repository = ref.watch(sessionRepositoryProvider);
-  final deviceIdAsync = ref.watch(deviceIdProvider);
-
-  final deviceId = deviceIdAsync.when(
-    data: (id) => id,
-    loading: () => 'loading',
-    error: (_, __) => 'error',
-  );
+  final deviceId = ref.watch(deviceIdProvider);
 
   return SessionNotifier(repository, deviceId);
 });

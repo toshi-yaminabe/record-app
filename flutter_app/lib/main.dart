@@ -3,9 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/app_logger.dart';
 import 'core/constants.dart';
+import 'data/repositories/authenticated_client.dart';
+import 'presentation/pages/auth/login_page.dart';
 import 'presentation/pages/home/home_page.dart';
+import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/recording_provider.dart';
 import 'services/device/device_id_service.dart';
 import 'services/offline/connectivity_monitor.dart';
@@ -33,6 +37,20 @@ Future<void> main() async {
     return;
   }
 
+  // Supabase初期化
+  if (SupabaseConfig.url.isNotEmpty && SupabaseConfig.anonKey.isNotEmpty) {
+    await Supabase.initialize(
+      url: SupabaseConfig.url,
+      anonKey: SupabaseConfig.anonKey,
+    );
+    AppLogger.lifecycle('supabase: initialized url=${SupabaseConfig.url}');
+  } else {
+    AppLogger.lifecycle(
+      'WARNING: SUPABASE_URL or SUPABASE_ANON_KEY is empty. '
+      'Auth features will not work.',
+    );
+  }
+
   // deviceIdを事前解決（起動時に1回だけ）
   final deviceId = await DeviceIdService.getOrCreate();
   AppLogger.lifecycle('app starting: deviceId=$deviceId');
@@ -54,14 +72,13 @@ Future<void> main() async {
   await BackgroundServiceInitializer.initialize();
 
   // H3: Provider経由でサービスをまとめて初期化
-  // OfflineQueueService / PendingTranscribeStore / TranscribeRetryService は
-  // recording_provider.dart のProviderで定義済み。
-  // ConnectivityMonitor にも同じインスタンスを渡す。
+  final authenticatedClient = AuthenticatedClient(baseUrl: ApiConfig.baseUrl);
   final offlineQueueService = OfflineQueueService();
   final pendingTranscribeStore = PendingTranscribeStore();
+  final transcribeService = TranscribeService(baseUrl: ApiConfig.baseUrl);
   final transcribeRetryService = TranscribeRetryService(
     store: pendingTranscribeStore,
-    transcribeService: TranscribeService(baseUrl: ApiConfig.baseUrl),
+    transcribeService: transcribeService,
   );
 
   final connectivityMonitor = ConnectivityMonitor(
@@ -76,16 +93,20 @@ Future<void> main() async {
       offlineQueueServiceProvider.overrideWithValue(offlineQueueService),
       pendingTranscribeStoreProvider
           .overrideWithValue(pendingTranscribeStore),
+      authenticatedClientProvider.overrideWithValue(authenticatedClient),
+      transcribeServiceProvider.overrideWithValue(transcribeService),
     ],
     child: const MyApp(),
   ));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authNotifierProvider);
+
     return MaterialApp(
       title: '録音アプリ',
       debugShowCheckedModeBanner: false,
@@ -93,7 +114,25 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      // Auth導入後に LoginPage 分岐を復活
+      // : authState.isAuthenticated ? const HomePage() : const LoginPage(),
+      home: authState.isLoading
+          ? const _SplashScreen()
+          : const HomePage(),
+    );
+  }
+}
+
+/// スプラッシュ画面（認証状態確認中）
+class _SplashScreen extends StatelessWidget {
+  const _SplashScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: CircularProgressIndicator(),
+      ),
     );
   }
 }

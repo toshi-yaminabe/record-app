@@ -4,8 +4,8 @@ import '../../core/app_logger.dart';
 
 /// 文字起こしリトライ専用ストア
 ///
-/// 汎用キューとは分離し、TranscribeService.transcribe() を直接リトライする。
-/// 音声ファイルのパスを保持するため、multipart再送が可能。
+/// 状態遷移: pending(ローカル) → uploaded(Storage済) → processed(STT済)
+/// オフライン復帰時: uploaded済はEF呼び出しのみ、pending済はStorage upload + EF
 class PendingTranscribeStore {
   static Database? _database;
 
@@ -22,7 +22,7 @@ class PendingTranscribeStore {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE pending_transcribes (
@@ -33,6 +33,7 @@ class PendingTranscribeStore {
             segment_no INTEGER NOT NULL,
             start_at TEXT NOT NULL,
             end_at TEXT NOT NULL,
+            storage_object_path TEXT,
             retry_count INTEGER DEFAULT 0,
             status TEXT DEFAULT 'pending',
             created_at TEXT NOT NULL
@@ -42,7 +43,11 @@ class PendingTranscribeStore {
       onUpgrade: (db, oldVersion, newVersion) async {
         AppLogger.db(
             'Upgrading pending_transcribes DB from v$oldVersion to v$newVersion');
-        // Future migrations go here
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE pending_transcribes ADD COLUMN storage_object_path TEXT',
+          );
+        }
       },
     );
   }
@@ -55,6 +60,7 @@ class PendingTranscribeStore {
     required int segmentNo,
     required DateTime startAt,
     required DateTime endAt,
+    String? storageObjectPath,
   }) async {
     try {
       final db = await database;
@@ -65,6 +71,7 @@ class PendingTranscribeStore {
         'segment_no': segmentNo,
         'start_at': startAt.toIso8601String(),
         'end_at': endAt.toIso8601String(),
+        'storage_object_path': storageObjectPath,
         'retry_count': 0,
         'status': 'pending',
         'created_at': DateTime.now().toUtc().toIso8601String(),
@@ -77,14 +84,33 @@ class PendingTranscribeStore {
     }
   }
 
+  /// Storage uploadedとしてマーク
+  Future<void> markUploaded(int id, String storageObjectPath) async {
+    try {
+      final db = await database;
+      await db.update(
+        'pending_transcribes',
+        {
+          'storage_object_path': storageObjectPath,
+          'status': 'uploaded',
+        },
+        where: 'id = ?',
+        whereArgs: [id],
+      );
+      AppLogger.db('pending_transcribe: uploaded id=$id path=$storageObjectPath');
+    } on DatabaseException catch (e, stack) {
+      AppLogger.db('pending_transcribe: markUploaded failed for id=$id',
+          error: e, stack: stack);
+    }
+  }
+
   /// pending状態のエントリ一覧を取得
   Future<List<PendingTranscribeEntry>> listPending() async {
     try {
       final db = await database;
       final maps = await db.query(
         'pending_transcribes',
-        where: 'status = ?',
-        whereArgs: ['pending'],
+        where: "status IN ('pending', 'uploaded')",
         orderBy: 'created_at ASC',
       );
       return maps.map((m) => PendingTranscribeEntry.fromMap(m)).toList();
@@ -151,8 +177,7 @@ class PendingTranscribeStore {
     try {
       final db = await database;
       final result = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM pending_transcribes WHERE status = ?',
-        ['pending'],
+        "SELECT COUNT(*) as count FROM pending_transcribes WHERE status IN ('pending', 'uploaded')",
       );
       return Sqflite.firstIntValue(result) ?? 0;
     } on DatabaseException catch (e, stack) {
@@ -167,8 +192,7 @@ class PendingTranscribeStore {
     try {
       final db = await database;
       final result = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM pending_transcribes WHERE status = ?',
-        ['dead_letter'],
+        "SELECT COUNT(*) as count FROM pending_transcribes WHERE status = 'dead_letter'",
       );
       return Sqflite.firstIntValue(result) ?? 0;
     } on DatabaseException catch (e, stack) {
@@ -224,6 +248,7 @@ class PendingTranscribeEntry {
   final int segmentNo;
   final DateTime startAt;
   final DateTime endAt;
+  final String? storageObjectPath;
   final int retryCount;
   final String status;
   final DateTime createdAt;
@@ -236,6 +261,7 @@ class PendingTranscribeEntry {
     required this.segmentNo,
     required this.startAt,
     required this.endAt,
+    this.storageObjectPath,
     required this.retryCount,
     required this.status,
     required this.createdAt,
@@ -250,6 +276,7 @@ class PendingTranscribeEntry {
       segmentNo: map['segment_no'] as int,
       startAt: DateTime.parse(map['start_at'] as String),
       endAt: DateTime.parse(map['end_at'] as String),
+      storageObjectPath: map['storage_object_path'] as String?,
       retryCount: map['retry_count'] as int,
       status: map['status'] as String,
       createdAt: DateTime.parse(map['created_at'] as String),

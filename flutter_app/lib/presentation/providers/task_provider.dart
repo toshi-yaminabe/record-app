@@ -1,11 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/constants.dart';
 import '../../data/models/task_model.dart';
 import '../../data/repositories/task_repository.dart';
+import 'recording_provider.dart' show authenticatedClientProvider;
 
 /// タスクリポジトリプロバイダー
 final taskRepositoryProvider = Provider<TaskRepository>((ref) {
-  return TaskRepository();
+  final client = ref.watch(authenticatedClientProvider);
+  return TaskRepository(client: client);
 });
 
 /// タスク状態
@@ -62,7 +63,6 @@ class TaskNotifier extends StateNotifier<TaskState> {
   }) async {
     try {
       final newTask = await _repository.createTask(
-        userId: AppConstants.mockUserId,
         bunjinId: bunjinId,
         title: title,
         body: body,

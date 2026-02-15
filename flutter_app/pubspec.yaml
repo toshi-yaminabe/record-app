@@ -24,6 +24,9 @@ dependencies:
   path: ^1.9.1
   uuid: ^4.5.1
 
+  # Supabase (認証 + Storage + Edge Functions)
+  supabase_flutter: ^2.8.0
+
   # HTTP (文字起こしAPI用)
   http: ^1.2.2
   http_parser: ^4.1.0
