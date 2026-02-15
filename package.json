@@ -8,20 +8,23 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "node prisma/seed.mjs",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run --exclude __tests__/integration/**",
+    "test:integration": "RUN_INTEGRATION_TESTS=true vitest run __tests__/integration/",
+    "test:all": "RUN_INTEGRATION_TESTS=true vitest run",
+    "test:watch": "vitest --exclude __tests__/integration/**"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@neondatabase/serverless": "^0.10.4",
-    "@prisma/adapter-neon": "^6.2.1",
     "@prisma/client": "^6.2.1",
+    "@supabase/supabase-js": "^2.95.3",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.2",
     "next": "^15.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0",
-    "ws": "^8.18.0"
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "dotenv": "^17.3.1",
     "eslint": "^8.57.0",
     "eslint-config-next": "^15.0.0",
     "prisma": "^6.2.1",
