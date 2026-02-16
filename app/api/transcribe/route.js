@@ -16,6 +16,12 @@ export const POST = withApi(async (request, { userId }) => {
   // Deprecation警告
   console.warn('[DEPRECATED] POST /api/transcribe — migrate to Storage + Edge Function process-audio')
 
+  // Content-Lengthで早期にファイルサイズ超過を検出
+  const contentLength = parseInt(request.headers.get('content-length') || '0', 10)
+  if (contentLength > MAX_AUDIO_SIZE) {
+    throw new AppError('Audio file too large (max 6MB)', 413)
+  }
+
   const formData = await request.formData()
   const audioFile = formData.get('audio')
   const deviceId = formData.get('deviceId')
@@ -37,7 +43,26 @@ export const POST = withApi(async (request, { userId }) => {
 
   const arrayBuffer = await audioFile.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
-  const text = await transcribeAudio(buffer, audioFile.type || 'audio/mp4', userId)
+
+  let text
+  try {
+    text = await transcribeAudio(buffer, audioFile.type || 'audio/mp4', userId)
+  } catch (error) {
+    // Geminiタイムアウトエラーを検出して504を返す
+    if (error.message?.includes('timeout')) {
+      throw new AppError('Gemini API request timeout. Please try again.', 504)
+    }
+    // Gemini APIエラー（rate limit等）を検出して502を返す
+    if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
+      throw new AppError('Gemini API rate limit exceeded. Please wait and try again.', 502)
+    }
+    // その他のGemini APIエラーも502として扱う
+    if (error.message?.includes('GEMINI_API_KEY') || error.message?.includes('API')) {
+      throw new AppError('Gemini API error. Please check configuration.', 502)
+    }
+    // その他の予期しないエラーは再スロー
+    throw error
+  }
 
   let session = await prisma.session.findFirst({
     where: { deviceId, userId, status: SESSION_STATUS.ACTIVE },
