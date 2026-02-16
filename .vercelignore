@@ -1,0 +1,7 @@
+flutter_app/
+.reports/
+docs/
+future/
+test-results/
+__tests__/
+.claude/
