@@ -37,16 +37,19 @@ graph TB
     end
 
     subgraph External["外部サービス"]
-        Neon["Neon PostgreSQL<br/>(Serverless)"]
+        Supabase["Supabase PostgreSQL<br/>(ap-northeast-1)"]
         Gemini["Google Gemini API<br/>(gemini-2.0-flash)"]
+        EdgeFunc["Supabase Edge Function<br/>(process-audio)"]
     end
 
     Flutter -->|REST API| API
     Web -->|直接呼び出し| API
     API --> Services
     Services --> Lib
-    Lib -->|Prisma 6| Neon
+    Lib -->|Prisma 6| Supabase
     Lib -->|@google/generative-ai| Gemini
+    Flutter -->|音声文字起こし| EdgeFunc
+    EdgeFunc -->|Supabase Storage| Supabase
 ```
 
 ### ディレクトリ構造
@@ -75,7 +78,7 @@ record-app/
 │   ├── layout.js                 # ルートレイアウト
 │   └── error.js                  # エラーバウンダリ
 ├── lib/                          # バックエンド共通ライブラリ
-│   ├── prisma.js                 # Prismaクライアント初期化 (Neon Serverless + PrismaNeon adapter)
+│   ├── prisma.js                 # Prismaクライアント初期化 (Supabase PostgreSQL via PgBouncer)
 │   ├── gemini.js                 # Gemini API (STT + 提案生成, 環境変数 > DB保存キー)
 │   ├── crypto.js                 # AES-256-GCM暗号化 (APIキーのDB保存用)
 │   ├── constants.js              # 定数定義 (MOCK_USER_ID, ステータス, デフォルト分人)
@@ -608,10 +611,14 @@ ARCHIVED  |  NG  |  NG   |  NG  |   -
 
 | 変数名 | 用途 | 必須 | 設定場所 |
 |--------|------|------|---------|
-| `DATABASE_URL` | Neon PostgreSQL接続文字列 | 必須 | `.env` / Vercel環境変数 |
+| `DATABASE_URL` | Supabase PostgreSQL接続文字列 (Transaction mode) | 必須 | `.env` / Vercel環境変数 |
+| `DIRECT_URL` | Supabase PostgreSQL直接接続 (Session mode, マイグレーション用) | 必須 | `.env` / Vercel環境変数 |
+| `SUPABASE_URL` | SupabaseプロジェクトURL | 必須 | `.env` / Vercel環境変数 |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Service Role Key (RLSバイパス) | 必須 | `.env` / Vercel環境変数 |
 | `GEMINI_API_KEY` | Google Gemini APIキー (STT + 提案生成) | 必須 | `.env` / Vercel環境変数 |
 | `ENCRYPTION_KEY` | AES-256-GCM暗号化キー (32byte hex=64文字) | 任意 | `.env` / Vercel環境変数 |
 | `CRON_SECRET` | Cronジョブ認証トークン | 任意 | Vercel環境変数 |
+| `DEV_AUTH_BYPASS` | 開発環境での認証バイパス | 任意 | `.env` (開発環境のみ) |
 | `NODE_ENV` | 実行環境 (development/production) | 自動 | Next.js自動設定 |
 
 **ENCRYPTION_KEY について:**
@@ -619,9 +626,14 @@ ARCHIVED  |  NG  |  NG   |  NG  |   -
 - `lib/crypto.js` で `encrypt()` / `decrypt()` に使用
 - ユーザー設定のGemini APIキーをDBに暗号化保存する際に必要
 
-**DATABASE_URL 形式:**
+**DATABASE_URL 形式 (Supabase Transaction mode):**
 ```
-postgresql://user:password@host/dbname?sslmode=require
+postgresql://postgres.[ref]:[password]@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&statement_cache_size=0
+```
+
+**DIRECT_URL 形式 (Supabase Session mode):**
+```
+postgresql://postgres.[ref]:[password]@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
 ```
 
 ### Flutter (モバイルアプリ)
@@ -760,15 +772,27 @@ flowchart LR
 | 関数タイムアウト | transcribe: 60秒, proposals: 60秒, 他: デフォルト |
 | 設定ファイル | `vercel.json` |
 
-### Neon (PostgreSQL)
+### Supabase PostgreSQL
 
 | 項目 | 詳細 |
 |------|------|
 | 用途 | プライマリデータベース |
-| 接続方式 | 直接接続 (Prisma Client) |
-| アダプタ | `@prisma/adapter-neon` (v6.2.1) |
-| SSL | 必須 (`sslmode=require`) |
-| 接続プール | Neon側のコネクションプール使用 |
+| プロジェクトID | `dhwuekyutobpnocwhdut` |
+| リージョン | `ap-northeast-1` (東京) |
+| 接続方式 | PgBouncer経由 (Transaction mode: port 6543) |
+| 直接接続 | Session mode: port 5432 (マイグレーション用) |
+| 接続プール | Supabase Supavisor (組み込みプーラー) |
+| Postgres Version | 17.6.1.063 |
+
+### Supabase Edge Functions
+
+| 項目 | 詳細 |
+|------|------|
+| 用途 | 音声文字起こし処理 (process-audio) |
+| ランタイム | Deno + TypeScript |
+| 環境変数 | `GEMINI_API_KEY` (手動設定), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (自動提供) |
+| 処理フロー | 1. Storageから音声DL → 2. Gemini STT → 3. Segment更新 → 4. 音声削除 |
+| JWT認証 | 有効 (`verify_jwt: true`) |
 
 ### Google Gemini API
 
