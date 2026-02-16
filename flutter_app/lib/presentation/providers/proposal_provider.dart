@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/errors.dart';
+import '../../core/app_logger.dart';
 import '../../data/models/proposal_model.dart';
 import '../../data/repositories/proposal_repository.dart';
 import 'recording_provider.dart' show authenticatedClientProvider;
@@ -54,7 +56,8 @@ class ProposalNotifier extends StateNotifier<ProposalState> {
       final proposals = await _repository.getProposals(dateKey: dateKey);
       state = state.copyWith(proposals: proposals, isLoading: false);
     } catch (e) {
-      state = state.copyWith(isLoading: false, error: e.toString());
+      AppLogger.api('fetchTodayProposals failed', error: e);
+      state = state.copyWith(isLoading: false, error: _toUserMessage(e));
     }
   }
 
@@ -67,7 +70,8 @@ class ProposalNotifier extends StateNotifier<ProposalState> {
       final proposals = await _repository.generateProposals(dateKey);
       state = state.copyWith(proposals: proposals, isGenerating: false);
     } catch (e) {
-      state = state.copyWith(isGenerating: false, error: e.toString());
+      AppLogger.api('generateTodayProposals failed', error: e);
+      state = state.copyWith(isGenerating: false, error: _toUserMessage(e));
     }
   }
 
@@ -83,7 +87,8 @@ class ProposalNotifier extends StateNotifier<ProposalState> {
       }).toList();
       state = state.copyWith(proposals: updated);
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      AppLogger.api('confirmProposal failed', error: e);
+      state = state.copyWith(error: _toUserMessage(e));
     }
   }
 
@@ -99,8 +104,29 @@ class ProposalNotifier extends StateNotifier<ProposalState> {
       }).toList();
       state = state.copyWith(proposals: updated);
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      AppLogger.api('rejectProposal failed', error: e);
+      state = state.copyWith(error: _toUserMessage(e));
     }
+  }
+
+  String _toUserMessage(Object error) {
+    if (error is ApiException) {
+      final msg = error.message;
+      if (msg.contains('文字起こし済みの録音がありません')) {
+        return 'この日はまだ録音データがないため、日次提案を作成できません。\n'
+            '先に録音を行い、文字起こし完了後に再度お試しください。';
+      }
+      if (error.statusCode == 401) {
+        return 'ログイン状態を確認できませんでした。再ログイン後にお試しください。';
+      }
+      return msg;
+    }
+
+    if (error is NetworkException) {
+      return '通信に失敗しました。ネットワーク接続を確認して再度お試しください。';
+    }
+
+    return '日次チェックインの処理でエラーが発生しました。時間をおいて再度お試しください。';
   }
 
   String _todayDateKey() {

@@ -65,11 +65,89 @@ class _DailyCheckinPageState extends ConsumerState<DailyCheckinPage> {
                   color: Theme.of(context).colorScheme.errorContainer,
                   child: Padding(
                     padding: const EdgeInsets.all(12.0),
-                    child: Text(
-                      state.error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onErrorContainer,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 18,
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onErrorContainer,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '日次チェックインでエラーが発生しました',
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onErrorContainer,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          state.error!,
+                          style: TextStyle(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .onErrorContainer,
+                          ),
+                        ),
+                        if (_isNoRecordingError(state.error!)) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            '次の手順で解消できます',
+                            style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onErrorContainer,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '1. 録音タブで録音を開始\n'
+                            '2. 文字起こしが完了するまで待つ\n'
+                            '3. この画面で「提案を生成」を再実行',
+                            style: TextStyle(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onErrorContainer,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          if (state.error != null && _isNoRecordingError(state.error!))
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: Card(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  child: const Padding(
+                    padding: EdgeInsets.all(12.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.tips_and_updates_outlined, size: 20),
+                        SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            '日次チェックインは「文字起こし済みの録音」をもとに提案を作成します。\n'
+                            '録音直後は処理待ちの場合があるため、少し時間をおいて再試行してください。',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -174,6 +252,11 @@ class _DailyCheckinPageState extends ConsumerState<DailyCheckinPage> {
     const weekdays = ['月', '火', '水', '木', '金', '土', '日'];
     final weekday = weekdays[now.weekday - 1];
     return '${now.year}/${now.month}/${now.day}（$weekday）';
+  }
+
+  bool _isNoRecordingError(String message) {
+    return message.contains('録音データがない') ||
+        message.contains('文字起こし済みの録音がありません');
   }
 }
 
