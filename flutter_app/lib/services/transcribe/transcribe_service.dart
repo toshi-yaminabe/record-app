@@ -175,7 +175,7 @@ class TranscribeService {
     ));
 
     final streamedResponse = await request.send().timeout(
-      const Duration(seconds: 60),
+      const Duration(seconds: 90),
     );
     final response = await http.Response.fromStream(streamedResponse);
 
@@ -183,7 +183,9 @@ class TranscribeService {
 
     if (response.statusCode != 200) {
       throw TranscribeException(
-          '文字起こし失敗 (${response.statusCode}): ${response.body}');
+        '文字起こし失敗 (${response.statusCode}): ${response.body}',
+        statusCode: response.statusCode,
+      );
     }
 
     final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -198,6 +200,7 @@ class TranscribeService {
     return TranscribeResult(
       segmentId: segment['id'] as String,
       text: segment['text'] as String? ?? '',
+      sessionId: segment['sessionId'] as String?,
     );
   }
 
@@ -227,7 +230,7 @@ class TranscribeService {
         'endAt': endAt.toIso8601String(),
         'storageObjectPath': storagePath,
       }),
-    ).timeout(const Duration(seconds: 15));
+    ).timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
       throw TranscribeException('セグメント作成失敗: ${response.body}');
@@ -281,10 +284,12 @@ class TranscribeService {
 class TranscribeResult {
   final String segmentId;
   final String text;
+  final String? sessionId;
 
   TranscribeResult({
     required this.segmentId,
     required this.text,
+    this.sessionId,
   });
 }
 
@@ -327,8 +332,12 @@ class SegmentData {
 /// 文字起こし例外
 class TranscribeException implements Exception {
   final String message;
-  TranscribeException(this.message);
+  final int? statusCode;
+
+  TranscribeException(this.message, {this.statusCode});
 
   @override
-  String toString() => message;
+  String toString() => statusCode != null
+      ? '$message (HTTP $statusCode)'
+      : message;
 }

@@ -42,13 +42,15 @@ class RecordingService {
     _segmentSub = _service.on('onSegmentCompleted').listen((event) {
       if (event == null) return;
       final filePath = event['filePath'] as String;
-      AppLogger.recording('BG event: onSegmentCompleted filePath=$filePath');
+      final segmentNo = event['segmentNo'] as int;
+      AppLogger.recording('BG event: onSegmentCompleted filePath=$filePath segmentNo=$segmentNo');
       _eventController.add(SegmentCompleted(
         sessionId: event['sessionId'] as String,
         filePath: filePath,
         startTime: DateTime.parse(event['startTime'] as String),
         endTime: DateTime.parse(event['endTime'] as String),
         reason: _parseReason(event['reason'] as String),
+        segmentNo: segmentNo,
       ));
     });
 
@@ -118,9 +120,9 @@ class RecordingService {
       readySub.cancel();
     });
 
-    // 5秒タイムアウト
+    // 15秒タイムアウト
     try {
-      await readyCompleter.future.timeout(const Duration(seconds: 5));
+      await readyCompleter.future.timeout(const Duration(seconds: 15));
     } on TimeoutException {
       readySub.cancel();
       throw RecordingException('バックグラウンドサービスの起動がタイムアウトしました');
@@ -211,6 +213,7 @@ class SegmentCompleted extends RecordingEvent {
   final DateTime startTime;
   final DateTime endTime;
   final SegmentReason reason;
+  final int segmentNo;
 
   SegmentCompleted({
     required this.sessionId,
@@ -218,6 +221,7 @@ class SegmentCompleted extends RecordingEvent {
     required this.startTime,
     required this.endTime,
     required this.reason,
+    required this.segmentNo,
   });
 }
 

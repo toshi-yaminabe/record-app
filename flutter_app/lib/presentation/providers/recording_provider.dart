@@ -139,17 +139,18 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
           :final sessionId,
           :final filePath,
           :final startTime,
-          :final endTime
+          :final endTime,
+          :final segmentNo
         ):
         AppLogger.recording(
-            'SegmentCompleted sessionId=$sessionId filePath=$filePath');
+            'SegmentCompleted sessionId=$sessionId filePath=$filePath segmentNo=$segmentNo');
         state = state.copyWith(
-          segmentCount: state.segmentCount + 1,
+          segmentCount: segmentNo,
         );
         _transcribeAndDelete(
           filePath: filePath,
           sessionId: sessionId,
-          segmentNo: state.segmentCount,
+          segmentNo: segmentNo,
           startTime: startTime,
           endTime: endTime,
         );
@@ -187,8 +188,11 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
       }
 
       AppLogger.recording(
-          'transcribe success: segmentId=${result.segmentId}');
+          'transcribe success: segmentId=${result.segmentId} serverSessionId=${result.sessionId}');
+
+      // サーバー返却のsessionIdでstateを更新（旧フロー互換）
       state = state.copyWith(
+        sessionId: result.sessionId ?? state.sessionId,
         transcribedCount: state.transcribedCount + 1,
         lastTranscript: result.text,
       );
