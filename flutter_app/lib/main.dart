@@ -121,11 +121,11 @@ class MyApp extends ConsumerWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      // Auth導入後に LoginPage 分岐を復活
-      // : authState.isAuthenticated ? const HomePage() : const LoginPage(),
       home: authState.isLoading
           ? const _SplashScreen()
-          : const HomePage(),
+          : authState.isAuthenticated
+              ? const HomePage()
+              : const LoginPage(),
     );
   }
 }

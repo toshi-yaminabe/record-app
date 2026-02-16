@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/app_logger.dart';
 import '../../../core/constants.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/recording_provider.dart';
 
 /// 設定ページ
@@ -91,6 +92,31 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('デバッグログをクリアしました')),
       );
+    }
+  }
+
+  Future<void> _confirmSignOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ログアウト'),
+        content: const Text('ログアウトしますか？'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('キャンセル'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('ログアウト'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await ref.read(authNotifierProvider.notifier).signOut();
     }
   }
 
@@ -199,6 +225,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ],
           ),
+        ),
+        const Divider(),
+
+        // ログアウト
+        ListTile(
+          leading: const Icon(Icons.logout, color: Colors.red),
+          title: const Text(
+            'ログアウト',
+            style: TextStyle(color: Colors.red),
+          ),
+          subtitle: const Text('アカウントからログアウトします'),
+          onTap: _confirmSignOut,
         ),
         const SizedBox(height: 16),
       ],
