@@ -1,5 +1,6 @@
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 
 /// カテゴリ別デバッグロガー
@@ -11,11 +12,14 @@ class AppLogger {
   static File? _logFile;
 
   /// 起動時に呼び出し — ログファイルを初期化
-  static Future<void> init() async {
+  static Future<void> init({PackageInfo? packageInfo}) async {
     final dir = await getApplicationDocumentsDirectory();
     _logFile = File('${dir.path}/debug.log');
+    final versionSuffix = packageInfo != null
+        ? ' v${packageInfo.version}+${packageInfo.buildNumber}'
+        : '';
     await _logFile!.writeAsString(
-      '=== record-app debug log: ${DateTime.now().toIso8601String()} ===\n',
+      '=== record-app$versionSuffix debug log: ${DateTime.now().toIso8601String()} ===\n',
     );
   }
 

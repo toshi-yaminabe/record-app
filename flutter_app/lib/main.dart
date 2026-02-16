@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,7 +25,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ログ基盤初期化
-  await AppLogger.init();
+  final packageInfo = await PackageInfo.fromPlatform();
+  await AppLogger.init(packageInfo: packageInfo);
+  AppLogger.lifecycle(
+    'app version=${packageInfo.version} '
+    'build=${packageInfo.buildNumber} '
+    'package=${packageInfo.packageName}',
+  );
 
   // H2: baseUrlが空の場合はアプリ起動をブロック
   if (ApiConfig.baseUrl.isEmpty) {
