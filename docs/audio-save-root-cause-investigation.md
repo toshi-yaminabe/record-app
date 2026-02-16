@@ -42,6 +42,15 @@ Flutter 録音アプリの「録音→保存→文字起こし」パイプライ
 - Flutterは `API_BASE_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` を `--dart-define` で注入前提。
 - しかし録音のセッション管理は「バックエンドセッション作成」と接続されていない。
 
+
+## 日次チェックイン APIエラーの根本原因
+
+- 日次チェックイン（`POST /api/proposals`）は、対象日の `segments` テーブルから `sttStatus = DONE` かつ `text != null` のデータが1件以上あることを前提に提案生成する。
+- 条件に合うセグメントが0件の場合、`generateDailyProposals()` は即時に `ValidationError` を投げる仕様。
+- つまり「録音が存在しない」だけでなく「録音はあるが文字起こし未完了（PENDING/FAILED）」でも同じ系統のエラーになる。
+
+=> 本件の一次原因は、日次提案機能の入力データ（文字起こし済みセグメント）が不足していること。
+
 ## 「今すぐ手動で確認すべきこと」（原因を確定するための観測項目）
 
 ### A. Flutter実機ログで確認
