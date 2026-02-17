@@ -22,8 +22,12 @@ import 'services/offline/transcribe_retry_service.dart';
 import 'data/local/migration_helper.dart';
 import 'data/local/secure_db_key_manager.dart';
 import 'data/local/unified_queue_database.dart';
+import 'data/local/local_transcribe_store.dart';
 import 'services/recording/background_service_initializer.dart';
 import 'services/recording/notification_channel_setup.dart';
+import 'services/transcribe/engine_resolver.dart';
+import 'services/transcribe/local_transcribe_sync_service.dart';
+import 'services/transcribe/server_engine.dart';
 import 'services/transcribe/transcribe_service.dart';
 
 Future<void> main() async {
@@ -105,9 +109,19 @@ Future<void> main() async {
     transcribeService: transcribeService,
   );
 
+  // Engine抽象化 + ローカルデータ一時保持
+  final serverEngine = ServerEngine(baseUrl: ApiConfig.baseUrl);
+  final engineResolver = EngineResolver(serverEngine: serverEngine);
+  final localTranscribeStore = LocalTranscribeStore();
+  final localTranscribeSyncService = LocalTranscribeSyncService(
+    store: localTranscribeStore,
+    baseUrl: ApiConfig.baseUrl,
+  );
+
   final connectivityMonitor = ConnectivityMonitor(
     queueService: offlineQueueService,
     transcribeRetryService: transcribeRetryService,
+    localTranscribeSyncService: localTranscribeSyncService,
   );
   connectivityMonitor.startMonitoring();
 
@@ -119,6 +133,8 @@ Future<void> main() async {
           .overrideWithValue(pendingTranscribeStore),
       authenticatedClientProvider.overrideWithValue(authenticatedClient),
       transcribeServiceProvider.overrideWithValue(transcribeService),
+      engineResolverProvider.overrideWithValue(engineResolver),
+      localTranscribeStoreProvider.overrideWithValue(localTranscribeStore),
     ],
     child: const MyApp(),
   ));

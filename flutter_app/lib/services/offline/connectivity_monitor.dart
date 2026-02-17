@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../../core/app_logger.dart';
+import '../transcribe/local_transcribe_sync_service.dart';
 import 'offline_queue_service.dart';
 import 'transcribe_retry_service.dart';
 
@@ -8,6 +9,7 @@ import 'transcribe_retry_service.dart';
 class ConnectivityMonitor {
   final OfflineQueueService _queueService;
   final TranscribeRetryService? _transcribeRetryService;
+  final LocalTranscribeSyncService? _localTranscribeSyncService;
   final Connectivity _connectivity;
   StreamSubscription<List<ConnectivityResult>>? _subscription;
   bool _wasOffline = false;
@@ -21,9 +23,11 @@ class ConnectivityMonitor {
   ConnectivityMonitor({
     required OfflineQueueService queueService,
     TranscribeRetryService? transcribeRetryService,
+    LocalTranscribeSyncService? localTranscribeSyncService,
     Connectivity? connectivity,
   })  : _queueService = queueService,
         _transcribeRetryService = transcribeRetryService,
+        _localTranscribeSyncService = localTranscribeSyncService,
         _connectivity = connectivity ?? Connectivity();
 
   /// 監視開始
@@ -66,6 +70,7 @@ class ConnectivityMonitor {
       try {
         await _queueService.flush();
         await _transcribeRetryService?.retryPending();
+        await _localTranscribeSyncService?.syncPending();
       } catch (e, stackTrace) {
         AppLogger.queue('flush/retry failed on connectivity restore',
             error: e, stack: stackTrace);
