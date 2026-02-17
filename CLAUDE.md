@@ -153,8 +153,8 @@ cd ~/apps/record-app/flutter_app
 flutter pub get
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000
 
-# 本番APKビルド
-flutter build apk --release --dart-define=API_BASE_URL=https://record-app-one.vercel.app
+# 本番APKビルド（Auth有効、env/prod.jsonで全パラメータ注入）
+flutter build apk --release --dart-define-from-file=env/prod.json < /dev/null
 
 # Vercelデプロイ
 vercel deploy --prod
