@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/app_logger.dart';
 import '../../../core/constants.dart';
+import '../../../core/transcribe_mode.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/recording_provider.dart';
+import '../../providers/transcribe_mode_provider.dart';
 
 /// 設定ページ
 class SettingsPage extends ConsumerStatefulWidget {
@@ -123,6 +125,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final apiUrl = ApiConfig.baseUrl.isEmpty ? '（未設定）' : ApiConfig.baseUrl;
+    final transcribeMode = ref.watch(transcribeModeProvider) ?? TranscribeMode.server;
 
     return ListView(
       children: [
@@ -139,6 +142,44 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           leading: const Icon(Icons.link),
           title: const Text('API接続先'),
           subtitle: Text(apiUrl),
+        ),
+        ListTile(
+          leading: const Icon(Icons.tune),
+          title: const Text('文字起こし方式'),
+          subtitle: Text(transcribeMode.label),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () async {
+            final selectedMode = await showModalBottomSheet<TranscribeMode>(
+              context: context,
+              builder: (context) => SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: TranscribeMode.values.map((mode) {
+                    final isSelected = mode == transcribeMode;
+                    return ListTile(
+                      leading: Icon(
+                        mode == TranscribeMode.server
+                            ? Icons.cloud_outlined
+                            : Icons.phone_android,
+                      ),
+                      title: Text(mode.label),
+                      subtitle: Text(mode.description),
+                      trailing: isSelected ? const Icon(Icons.check) : null,
+                      onTap: () => Navigator.of(context).pop(mode),
+                    );
+                  }).toList(),
+                ),
+              ),
+            );
+
+            if (selectedMode != null) {
+              await ref.read(transcribeModeProvider.notifier).setMode(selectedMode);
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('文字起こし方式を「${selectedMode.label}」に変更しました')),
+              );
+            }
+          },
         ),
         const Divider(),
 
