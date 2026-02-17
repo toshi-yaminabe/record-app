@@ -1,7 +1,7 @@
 # record-app ナレッジ資料
 
-**最終更新:** 2026-02-15
-**バージョン:** Web v1.5.2 (package.json) / Flutter v1.5.2+4 (pubspec.yaml)
+**最終更新:** 2026-02-17
+**バージョン:** Web v2.0.0 (package.json) / Flutter v2.0.0+5 (pubspec.yaml)
 
 ---
 
@@ -107,7 +107,7 @@ record-app/
 │       └── services/             # 録音・文字起こし・オフライン
 ├── next.config.mjs               # Next.js設定 (ESM, bodySizeLimit: 10mb)
 ├── vercel.json                   # Vercel関数設定 (transcribe/proposals: 60s)
-└── package.json                  # v1.5.2
+└── package.json                  # v2.0.0
 ```
 
 ### 技術スタック
@@ -117,7 +117,7 @@ record-app/
 | Web Framework | Next.js (App Router) | 15.x |
 | React | React 19 | 19.x |
 | ORM | Prisma | 6.2.x |
-| Database | PostgreSQL (Neon Serverless) | - |
+| Database | PostgreSQL (Supabase) | 17.x |
 | AI/ML | Google Generative AI (Gemini 2.0 Flash) | 0.24.x |
 | Flutter | Flutter SDK | >=3.10.0 |
 | 状態管理 | Riverpod | 2.6.x |
@@ -822,28 +822,26 @@ flowchart LR
 
 ### CRITICAL
 
-- **#4 認証がモック**: 全APIで `MOCK_USER_ID` ハードコード。Supabase Auth 導入予定
-- **#26 ミドルウェア層の欠如**: 認証/DB確認/バリデーション/レートリミットが20 APIに散在（`if (!prisma)` 30箇所重複）
-- **#27 テストカバレッジ5%**: 20 APIのうちテストあり1つのみ。CI/CD 0%。Flutterテスト0個
-- **#28 レートリミット未導入**: Gemini API呼び出しエンドポイントにコスト攻撃リスク
+- **#4 認証がモック**: Supabase Auth基盤実装済み（withApi JWT検証 + LoginPage）。DEV_AUTH_BYPASS=true で開発中。#41完了で解消
 
 ### HIGH
 
-- **#29 AudioDeletionLog未実装**: スキーマ定義のみ、削除ログ書き込み未実装（プライバシー要件未達）
-- **#30 オフラインキュー2DB統合**: `offline_queue_db` + `pending_transcribe_store` 分離による一貫性リスク
-- **#31 IPC readyハンドシェイク**: 5秒タイムアウトが低スペック端末で不足
-- **#32 Flutter通信セキュリティ**: HTTPS未強制、SQLite平文保存
+- **#29 テストカバレッジ不足**: 78テスト通過（推定30%）。目標80%。E1パス・Flutter未テスト
+- **#32 オフラインキュー2DB統合**: offline_queue_db + pending_transcribe_store の分離。統合スプリント推奨
+- **#34 Flutter通信・ローカルデータセキュリティ**: HTTPS強制なし、SQLite平文保存。#32完了後に実施
 
-### MEDIUM
+### 解決済み（2026-02-17バッチ修正）
 
-- **#33 Web 10タブ整理**: 開発者向けタブ混在 → 5タブに簡略化可能
-- **#34 コード重複パターン**: Hook/Repository/Provider の重複（合計390行削減可能）
-- **#35 console.log散在**: 14ファイル33箇所 → 構造化ログ化
-
-### LOW
-
-- **#36 CSS-in-JS肥大化**: settings-view.js CSS 48%
-- **#37 ドキュメント精度**: バージョン表記、Section 7解決済み未反映
+- ~~#27 セキュリティ脆弱性~~ (x-real-ip, immutable context, userId validation)
+- ~~#28 ミドルウェア残作業~~ (Zodバリデーション統合)
+- ~~#30 レートリミット~~ (Upstash Redis + インスタンスキャッシュ)
+- ~~#31 AudioDeletionLog~~ (EF process-audio v3で実装済み)
+- ~~#35 console.log散在~~ (lib/logger.js 構造化ログ統一)
+- ~~#37 Web 10タブ~~ (5タブに簡略化)
+- ~~#38 コード重複~~ (base-service.js ヘルパー導入)
+- ~~#39 CSS-in-JS肥大化~~ (CSS Modules分離)
+- ~~#40 Vercel環境変数~~ (.env.example更新済み)
+- ~~#42 Storage RLS~~ (INSERT/SELECT/DELETE ポリシー設定)
 
 ### 解決済み（2026-02-14バッチ修正）
 
