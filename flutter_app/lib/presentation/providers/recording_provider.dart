@@ -13,7 +13,6 @@ import '../../services/recording/recording_service.dart';
 import '../../services/transcribe/engine_resolver.dart';
 import '../../services/transcribe/transcribe_engine.dart';
 import '../../services/transcribe/transcribe_request_context.dart';
-import '../../services/transcribe/transcribe_service.dart';
 import '../../core/transcribe_mode.dart';
 import 'transcribe_mode_provider.dart';
 
@@ -22,12 +21,6 @@ final recordingServiceProvider = Provider<RecordingService>((ref) {
   final service = RecordingService();
   ref.onDispose(() => service.dispose());
   return service;
-});
-
-/// 文字起こしサービスプロバイダー
-/// main.dartのProviderScope.overridesでインスタンスを注入する。
-final transcribeServiceProvider = Provider<TranscribeService>((ref) {
-  return TranscribeService(baseUrl: ApiConfig.baseUrl);
 });
 
 /// 認証済みHTTPクライアントプロバイダー
@@ -122,7 +115,6 @@ class RecordingState {
 /// 録音状態Notifier
 class RecordingNotifier extends StateNotifier<RecordingState> {
   final RecordingService _recordingService;
-  final TranscribeService _transcribeService;
   final PendingTranscribeStore _pendingStore;
   final EngineResolver _engineResolver;
   final LocalTranscribeStore _localTranscribeStore;
@@ -135,7 +127,6 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
 
   RecordingNotifier(
     this._recordingService,
-    this._transcribeService,
     this._pendingStore,
     this._engineResolver,
     this._localTranscribeStore,
@@ -302,7 +293,6 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
 final recordingNotifierProvider =
     StateNotifierProvider<RecordingNotifier, RecordingState>((ref) {
   final recordingService = ref.watch(recordingServiceProvider);
-  final transcribeService = ref.watch(transcribeServiceProvider);
   final pendingStore = ref.watch(pendingTranscribeStoreProvider);
   final engineResolver = ref.watch(engineResolverProvider);
   final localTranscribeStore = ref.watch(localTranscribeStoreProvider);
@@ -310,7 +300,6 @@ final recordingNotifierProvider =
 
   return RecordingNotifier(
     recordingService,
-    transcribeService,
     pendingStore,
     engineResolver,
     localTranscribeStore,

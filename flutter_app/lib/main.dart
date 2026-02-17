@@ -28,8 +28,6 @@ import 'services/recording/notification_channel_setup.dart';
 import 'services/transcribe/engine_resolver.dart';
 import 'services/transcribe/local_transcribe_sync_service.dart';
 import 'services/transcribe/server_engine.dart';
-import 'services/transcribe/transcribe_service.dart';
-
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -103,15 +101,14 @@ Future<void> main() async {
   final authenticatedClient = AuthenticatedClient(baseUrl: ApiConfig.baseUrl);
   final offlineQueueService = OfflineQueueService();
   final pendingTranscribeStore = PendingTranscribeStore();
-  final transcribeService = TranscribeService(baseUrl: ApiConfig.baseUrl);
-  final transcribeRetryService = TranscribeRetryService(
-    store: pendingTranscribeStore,
-    transcribeService: transcribeService,
-  );
 
   // Engine抽象化 + ローカルデータ一時保持
   final serverEngine = ServerEngine(baseUrl: ApiConfig.baseUrl);
   final engineResolver = EngineResolver(serverEngine: serverEngine);
+  final transcribeRetryService = TranscribeRetryService(
+    store: pendingTranscribeStore,
+    serverEngine: serverEngine,
+  );
   final localTranscribeStore = LocalTranscribeStore();
   final localTranscribeSyncService = LocalTranscribeSyncService(
     store: localTranscribeStore,
@@ -132,7 +129,6 @@ Future<void> main() async {
       pendingTranscribeStoreProvider
           .overrideWithValue(pendingTranscribeStore),
       authenticatedClientProvider.overrideWithValue(authenticatedClient),
-      transcribeServiceProvider.overrideWithValue(transcribeService),
       engineResolverProvider.overrideWithValue(engineResolver),
       localTranscribeStoreProvider.overrideWithValue(localTranscribeStore),
     ],

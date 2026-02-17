@@ -10,7 +10,7 @@ import 'transcribe_request_context.dart';
 
 /// サーバーSTTエンジン
 ///
-/// 既存の TranscribeService._transcribeViaMultipart() ロジックを独立クラス化。
+/// multipart POST /api/transcribe で音声ファイルをサーバーに送信する。
 /// multipart POST /api/transcribe で音声ファイルをサーバーに送信し、
 /// Gemini STTで文字起こしを行う。
 class ServerEngine implements TranscribeEngine {

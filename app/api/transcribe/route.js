@@ -1,5 +1,5 @@
 /**
- * POST /api/transcribe - 音声文字起こし（非推奨: Storage + Edge Function に移行予定）
+ * POST /api/transcribe - 音声文字起こし（multipart POST）
  * GET  /api/transcribe - セグメント一覧取得
  */
 
@@ -94,28 +94,18 @@ export const POST = withApi(async (request, { userId }) => {
     },
   })
 
-  return NextResponse.json(
-    {
-      success: true,
-      data: {
-        segment: {
-          id: segment.id,
-          sessionId: session.id,
-          segmentNo,
-          text,
-          sttStatus: segment.sttStatus,
-        },
-        _deprecated: 'This endpoint is deprecated. Use Storage upload + Edge Function process-audio instead.',
+  return NextResponse.json({
+    success: true,
+    data: {
+      segment: {
+        id: segment.id,
+        sessionId: session.id,
+        segmentNo,
+        text,
+        sttStatus: segment.sttStatus,
       },
     },
-    {
-      headers: {
-        'Deprecation': 'true',
-        'Sunset': '2026-06-01',
-        'Link': '</docs/migration>; rel="deprecation"',
-      },
-    }
-  )
+  })
 }, { rateLimit: { requests: 10, window: '1 m' } })
 
 export const GET = withApi(async (request, { userId }) => {
