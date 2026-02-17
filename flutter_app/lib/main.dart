@@ -9,9 +9,11 @@ import 'core/app_logger.dart';
 import 'core/constants.dart';
 import 'data/repositories/authenticated_client.dart';
 import 'presentation/pages/auth/login_page.dart';
+import 'presentation/pages/auth/transcribe_mode_selection_page.dart';
 import 'presentation/pages/home/home_page.dart';
 import 'presentation/providers/auth_provider.dart';
 import 'presentation/providers/recording_provider.dart';
+import 'presentation/providers/transcribe_mode_provider.dart';
 import 'services/device/device_id_service.dart';
 import 'services/offline/connectivity_monitor.dart';
 import 'services/offline/offline_queue_service.dart';
@@ -128,6 +130,7 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authNotifierProvider);
+    final transcribeMode = ref.watch(transcribeModeProvider);
 
     return MaterialApp(
       title: '録音アプリ',
@@ -139,7 +142,9 @@ class MyApp extends ConsumerWidget {
       home: authState.isLoading
           ? const _SplashScreen()
           : authState.isAuthenticated
-              ? const HomePage()
+              ? transcribeMode == null
+                  ? const TranscribeModeSelectionPage()
+                  : const HomePage()
               : const LoginPage(),
     );
   }
