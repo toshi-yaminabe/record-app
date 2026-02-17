@@ -53,6 +53,11 @@ npx prisma migrate deploy
 node prisma/seed.mjs
 ```
 
+> ⚠️ **重要**: `npx prisma migrate deploy` を実行せずに起動すると、
+> テーブル定義/RLS設定の不整合により `500 Internal server error` が継続的に発生します。
+> とくに `20260217123000_enable_rls_with_policies` を未適用の環境では、
+> 認可ポリシー未整備で複数API（tasks/bunjins/proposals/transcribe）が同時に失敗する原因になります。
+
 ### Development
 
 Run the development server:
