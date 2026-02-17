@@ -1,56 +1,21 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'package:sqflite_sqlcipher/sqflite.dart';
 import '../../core/app_logger.dart';
+import '../../data/local/base_queue_db.dart';
+import '../../data/local/unified_queue_database.dart';
 
 /// 文字起こしリトライ専用ストア
 ///
 /// 状態遷移: pending(ローカル) → uploaded(Storage済) → processed(STT済)
 /// オフライン復帰時: uploaded済はEF呼び出しのみ、pending済はStorage upload + EF
-class PendingTranscribeStore {
-  static Database? _database;
+class PendingTranscribeStore extends BaseQueueDB {
+  @override
+  String get tableName => 'pending_transcribes';
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB();
-    return _database!;
-  }
+  @override
+  List<String> get pendingStatuses => const ['pending', 'uploaded'];
 
-  Future<Database> _initDB() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, 'pending_transcribes.db');
-    AppLogger.db('initDB: creating pending_transcribes table at $path');
-
-    return await openDatabase(
-      path,
-      version: 2,
-      onCreate: (db, version) async {
-        await db.execute('''
-          CREATE TABLE pending_transcribes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            file_path TEXT NOT NULL,
-            device_id TEXT NOT NULL,
-            session_id TEXT NOT NULL,
-            segment_no INTEGER NOT NULL,
-            start_at TEXT NOT NULL,
-            end_at TEXT NOT NULL,
-            storage_object_path TEXT,
-            retry_count INTEGER DEFAULT 0,
-            status TEXT DEFAULT 'pending',
-            created_at TEXT NOT NULL
-          )
-        ''');
-      },
-      onUpgrade: (db, oldVersion, newVersion) async {
-        AppLogger.db(
-            'Upgrading pending_transcribes DB from v$oldVersion to v$newVersion');
-        if (oldVersion < 2) {
-          await db.execute(
-            'ALTER TABLE pending_transcribes ADD COLUMN storage_object_path TEXT',
-          );
-        }
-      },
-    );
-  }
+  @override
+  Future<Database> get database => UnifiedQueueDatabase.instance;
 
   /// 文字起こし待ちエントリを追加
   Future<int> add({
@@ -64,7 +29,7 @@ class PendingTranscribeStore {
   }) async {
     try {
       final db = await database;
-      final id = await db.insert('pending_transcribes', {
+      final id = await db.insert(tableName, {
         'file_path': filePath,
         'device_id': deviceId,
         'session_id': sessionId,
@@ -89,7 +54,7 @@ class PendingTranscribeStore {
     try {
       final db = await database;
       await db.update(
-        'pending_transcribes',
+        tableName,
         {
           'storage_object_path': storageObjectPath,
           'status': 'uploaded',
@@ -97,7 +62,8 @@ class PendingTranscribeStore {
         where: 'id = ?',
         whereArgs: [id],
       );
-      AppLogger.db('pending_transcribe: uploaded id=$id path=$storageObjectPath');
+      AppLogger.db(
+          'pending_transcribe: uploaded id=$id path=$storageObjectPath');
     } on DatabaseException catch (e, stack) {
       AppLogger.db('pending_transcribe: markUploaded failed for id=$id',
           error: e, stack: stack);
@@ -109,7 +75,7 @@ class PendingTranscribeStore {
     try {
       final db = await database;
       final maps = await db.query(
-        'pending_transcribes',
+        tableName,
         where: "status IN ('pending', 'uploaded')",
         orderBy: 'created_at ASC',
       );
@@ -121,121 +87,9 @@ class PendingTranscribeStore {
     }
   }
 
-  /// エントリを完了としてマーク（削除）
-  Future<void> markCompleted(int id) async {
-    try {
-      final db = await database;
-      await db.delete(
-        'pending_transcribes',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      AppLogger.db('pending_transcribe: completed id=$id');
-    } on DatabaseException catch (e, stack) {
-      AppLogger.db('pending_transcribe: markCompleted failed for id=$id',
-          error: e, stack: stack);
-    }
-  }
-
-  /// エントリを失敗としてマーク（リトライカウント増加）
-  Future<void> markFailed(int id, int newRetryCount) async {
-    try {
-      final db = await database;
-      await db.update(
-        'pending_transcribes',
-        {'retry_count': newRetryCount, 'status': 'pending'},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      AppLogger.db(
-          'pending_transcribe: failed id=$id retryCount=$newRetryCount');
-    } on DatabaseException catch (e, stack) {
-      AppLogger.db('pending_transcribe: markFailed failed for id=$id',
-          error: e, stack: stack);
-    }
-  }
-
-  /// エントリをdead letterに移動
-  Future<void> markDeadLetter(int id) async {
-    try {
-      final db = await database;
-      await db.update(
-        'pending_transcribes',
-        {'status': 'dead_letter'},
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      AppLogger.db('pending_transcribe: dead_letter id=$id');
-    } on DatabaseException catch (e, stack) {
-      AppLogger.db('pending_transcribe: markDeadLetter failed for id=$id',
-          error: e, stack: stack);
-    }
-  }
-
-  /// pending件数
-  Future<int> pendingCount() async {
-    try {
-      final db = await database;
-      final result = await db.rawQuery(
-        "SELECT COUNT(*) as count FROM pending_transcribes WHERE status IN ('pending', 'uploaded')",
-      );
-      return Sqflite.firstIntValue(result) ?? 0;
-    } on DatabaseException catch (e, stack) {
-      AppLogger.db('pending_transcribe: pendingCount failed',
-          error: e, stack: stack);
-      return 0;
-    }
-  }
-
-  /// dead letter件数
-  Future<int> deadLetterCount() async {
-    try {
-      final db = await database;
-      final result = await db.rawQuery(
-        "SELECT COUNT(*) as count FROM pending_transcribes WHERE status = 'dead_letter'",
-      );
-      return Sqflite.firstIntValue(result) ?? 0;
-    } on DatabaseException catch (e, stack) {
-      AppLogger.db('pending_transcribe: deadLetterCount failed',
-          error: e, stack: stack);
-      return 0;
-    }
-  }
-
-  /// dead letterをpendingに戻す
-  Future<void> resetDeadLetters() async {
-    try {
-      final db = await database;
-      await db.update(
-        'pending_transcribes',
-        {'status': 'pending', 'retry_count': 0},
-        where: 'status = ?',
-        whereArgs: ['dead_letter'],
-      );
-    } on DatabaseException catch (e, stack) {
-      AppLogger.db('pending_transcribe: resetDeadLetters failed',
-          error: e, stack: stack);
-    }
-  }
-
-  /// 全クリア
-  Future<void> clear() async {
-    try {
-      final db = await database;
-      await db.delete('pending_transcribes');
-    } on DatabaseException catch (e, stack) {
-      AppLogger.db('pending_transcribe: clear failed',
-          error: e, stack: stack);
-    }
-  }
-
   /// データベースを閉じる
   Future<void> close() async {
-    final db = _database;
-    if (db != null) {
-      await db.close();
-      _database = null;
-    }
+    await UnifiedQueueDatabase.close();
   }
 }
 

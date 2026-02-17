@@ -17,6 +17,9 @@ import 'services/offline/connectivity_monitor.dart';
 import 'services/offline/offline_queue_service.dart';
 import 'services/offline/pending_transcribe_store.dart';
 import 'services/offline/transcribe_retry_service.dart';
+import 'data/local/migration_helper.dart';
+import 'data/local/secure_db_key_manager.dart';
+import 'data/local/unified_queue_database.dart';
 import 'services/recording/background_service_initializer.dart';
 import 'services/recording/notification_channel_setup.dart';
 import 'services/transcribe/transcribe_service.dart';
@@ -77,6 +80,18 @@ Future<void> main() async {
 
   // バックグラウンドサービス初期化
   await BackgroundServiceInitializer.initialize();
+
+  // DB暗号化キー取得 + マイグレーション（サービス初期化前に実行）
+  final dbKey = await SecureDbKeyManager.getOrCreateKey();
+
+  // Step 1: 旧2DB → 統合DB マイグレーション（平文のまま）
+  await MigrationHelper.migrateIfNeeded();
+
+  // Step 2: 平文統合DB → 暗号化統合DB マイグレーション
+  await MigrationHelper.migrateToEncrypted(dbKey);
+
+  // Step 3: 暗号化パスワードを設定してDB接続
+  UnifiedQueueDatabase.setPassword(dbKey);
 
   // H3: Provider経由でサービスをまとめて初期化
   final authenticatedClient = AuthenticatedClient(baseUrl: ApiConfig.baseUrl);
