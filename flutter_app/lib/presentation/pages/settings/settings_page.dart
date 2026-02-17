@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../core/app_logger.dart';
 import '../../../core/constants.dart';
 import '../../providers/auth_provider.dart';
@@ -18,11 +19,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   int _deadLetterCount = 0;
   bool _isLoading = false;
   bool _isRetrying = false;
+  String _appVersion = '';
 
   @override
   void initState() {
     super.initState();
     _loadCounts();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    setState(() {
+      _appVersion = '${info.version}+${info.buildNumber}';
+    });
   }
 
   Future<void> _loadCounts() async {
@@ -130,7 +140,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         ListTile(
           leading: const Icon(Icons.info_outline),
           title: const Text('アプリバージョン'),
-          subtitle: const Text('1.5.1+3'),
+          subtitle: Text(_appVersion.isEmpty ? '読み込み中...' : _appVersion),
         ),
         const Divider(),
 
