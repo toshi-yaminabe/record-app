@@ -5,10 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/app_logger.dart';
 import '../../core/constants.dart';
+import '../../data/local/local_transcribe_store.dart';
 import '../../data/repositories/authenticated_client.dart';
 import '../../services/offline/offline_queue_service.dart';
 import '../../services/offline/pending_transcribe_store.dart';
 import '../../services/recording/recording_service.dart';
+import '../../services/transcribe/engine_resolver.dart';
+import '../../services/transcribe/transcribe_engine.dart';
+import '../../services/transcribe/transcribe_request_context.dart';
 import '../../services/transcribe/transcribe_service.dart';
 import '../../core/transcribe_mode.dart';
 import 'transcribe_mode_provider.dart';
@@ -45,6 +49,22 @@ final offlineQueueServiceProvider = Provider<OfflineQueueService>((ref) {
 final pendingTranscribeStoreProvider = Provider<PendingTranscribeStore>((ref) {
   throw UnimplementedError(
     'pendingTranscribeStoreProvider must be overridden in ProviderScope',
+  );
+});
+
+/// エンジンリゾルバプロバイダー
+/// main.dartのProviderScope.overridesでインスタンスを注入する。
+final engineResolverProvider = Provider<EngineResolver>((ref) {
+  throw UnimplementedError(
+    'engineResolverProvider must be overridden in ProviderScope',
+  );
+});
+
+/// ローカル文字起こしストアプロバイダー
+/// main.dartのProviderScope.overridesでインスタンスを注入する。
+final localTranscribeStoreProvider = Provider<LocalTranscribeStore>((ref) {
+  throw UnimplementedError(
+    'localTranscribeStoreProvider must be overridden in ProviderScope',
   );
 });
 
@@ -104,6 +124,8 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
   final RecordingService _recordingService;
   final TranscribeService _transcribeService;
   final PendingTranscribeStore _pendingStore;
+  final EngineResolver _engineResolver;
+  final LocalTranscribeStore _localTranscribeStore;
   final String _deviceId;
   final Ref _ref;
 
@@ -115,6 +137,8 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     this._recordingService,
     this._transcribeService,
     this._pendingStore,
+    this._engineResolver,
+    this._localTranscribeStore,
     this._deviceId,
     this._ref,
   ) : super(const RecordingState()) {
@@ -178,23 +202,38 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     );
 
     try {
-      final result = await _transcribeService.transcribe(
+      // Engine経由で文字起こし
+      final engine = _engineResolver.resolve(mode);
+      final context = TranscribeRequestContext(
         filePath: filePath,
         deviceId: _deviceId,
         sessionId: sessionId,
         segmentNo: segmentNo,
         startAt: startTime.toUtc(),
         endAt: endTime.toUtc(),
-        mode: mode,
       );
+      final result = await engine.transcribe(context);
 
+      // 音声ファイル削除
       final file = File(filePath);
       if (await file.exists()) {
         await file.delete();
       }
 
+      // ローカルSQLiteに一次保存（サーバー同期は非同期で行われる）
+      await _localTranscribeStore.add(
+        sessionId: sessionId,
+        segmentNo: segmentNo,
+        startAt: startTime.toUtc(),
+        endAt: endTime.toUtc(),
+        text: result.text,
+        selectedMode: result.selectedMode.toApiValue(),
+        executedMode: result.executedMode.toApiValue(),
+        fallbackReason: result.fallbackReason,
+        localEngineVersion: result.localEngineVersion,
+      );
+
       state = state.copyWith(
-        sessionId: result.sessionId ?? state.sessionId,
         transcribedCount: state.transcribedCount + 1,
         lastTranscript: result.text,
       );
@@ -265,12 +304,16 @@ final recordingNotifierProvider =
   final recordingService = ref.watch(recordingServiceProvider);
   final transcribeService = ref.watch(transcribeServiceProvider);
   final pendingStore = ref.watch(pendingTranscribeStoreProvider);
+  final engineResolver = ref.watch(engineResolverProvider);
+  final localTranscribeStore = ref.watch(localTranscribeStoreProvider);
   final deviceId = ref.watch(deviceIdProvider);
 
   return RecordingNotifier(
     recordingService,
     transcribeService,
     pendingStore,
+    engineResolver,
+    localTranscribeStore,
     deviceId,
     ref,
   );

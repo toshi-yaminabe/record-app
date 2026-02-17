@@ -1,6 +1,28 @@
 enum TranscribeMode {
   server,
-  local,
+  local;
+
+  /// API送信用文字列値
+  String toApiValue() {
+    switch (this) {
+      case TranscribeMode.server:
+        return 'SERVER';
+      case TranscribeMode.local:
+        return 'LOCAL';
+    }
+  }
+
+  /// API受信値からenumに変換
+  static TranscribeMode fromApiValue(String value) {
+    switch (value) {
+      case 'SERVER':
+        return TranscribeMode.server;
+      case 'LOCAL':
+        return TranscribeMode.local;
+      default:
+        return TranscribeMode.server;
+    }
+  }
 }
 
 extension TranscribeModeLabel on TranscribeMode {

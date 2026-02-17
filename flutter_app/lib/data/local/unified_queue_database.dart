@@ -36,7 +36,7 @@ class UnifiedQueueDatabase {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       password: _password,
       onCreate: (db, version) async {
         AppLogger.db('UnifiedQueueDatabase: creating tables (v$version)');
@@ -70,8 +70,40 @@ class UnifiedQueueDatabase {
             created_at TEXT NOT NULL
           )
         ''');
+
+        // local_transcripts テーブル（ローカル文字起こし結果の一時保持）
+        await _createLocalTranscriptsTable(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        AppLogger.db(
+          'UnifiedQueueDatabase: upgrading v$oldVersion -> v$newVersion',
+        );
+        if (oldVersion < 2) {
+          await _createLocalTranscriptsTable(db);
+        }
       },
     );
+  }
+
+  static Future<void> _createLocalTranscriptsTable(Database db) async {
+    await db.execute('''
+      CREATE TABLE local_transcripts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT NOT NULL,
+        segment_no INTEGER NOT NULL,
+        start_at TEXT NOT NULL,
+        end_at TEXT NOT NULL,
+        text TEXT NOT NULL,
+        selected_mode TEXT NOT NULL,
+        executed_mode TEXT NOT NULL,
+        fallback_reason TEXT,
+        local_engine_version TEXT,
+        sync_status TEXT DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+    AppLogger.db('UnifiedQueueDatabase: local_transcripts table created');
   }
 
   /// データベースを閉じる（テスト用）
