@@ -2,7 +2,7 @@
 
 > 詳細・対応履歴は全て [GitHub Issues](https://github.com/toshi-yaminabe/record-app/issues) で管理。
 > このファイルはアクティブな課題の参照用サマリー。完了したら削除する。
-> **最終更新:** 2026-02-17（残14件バッチ修正後）
+> **最終更新:** 2026-02-17（残3件: #29, #32, #34）
 
 ---
 
@@ -19,22 +19,6 @@
 | E5 | 執事が育つ | 採用メモリーが蓄積（append-only、新情報優先）。提案精度が向上 | Memory (append-only) |
 
 **コア要件（削ってはいけない）:** FGS録音、10分/無音分割、オフラインキュー、STTパイプライン、ルールツリー、PublishedVersion、音声短期保持→即削除、AudioDeletionLog、メモリー蓄積
-
----
-
-## CRITICAL
-
-### [#4](https://github.com/toshi-yaminabe/record-app/issues/4) 認証がモック (MOCK_USER_ID ハードコード)
-
-| 項目 | 内容 |
-|------|------|
-| **領域** | backend / flutter |
-| **複雑度** | XL |
-| **UX影響** | E1-E5全て |
-
-**問題:** 全APIが `mock-user-001` で動作。DEV_AUTH_BYPASS=trueでバイパス中。マルチユーザー不可。
-**進捗:** withApiミドルウェアでJWT検証基盤は実装済み。Flutter AuthNotifier/LoginPageも実装済みだがスキップ中。
-**残り:** Supabase Auth本格導入（#41）が解決すれば本issueもclose。
 
 ---
 
