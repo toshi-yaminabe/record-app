@@ -3,6 +3,7 @@
  * GET  /api/transcribe - セグメント一覧取得
  */
 
+import { NextResponse } from 'next/server'
 import { withApi } from '@/lib/middleware.js'
 import { prisma } from '@/lib/prisma.js'
 import { transcribeAudio } from '@/lib/gemini.js'
@@ -13,9 +14,6 @@ const MAX_AUDIO_SIZE = 6 * 1024 * 1024 // 6MB
 const ALLOWED_MIME = ['audio/mp4', 'audio/mpeg', 'audio/m4a', 'audio/aac', 'audio/wav']
 
 export const POST = withApi(async (request, { userId }) => {
-  // Deprecation警告
-  console.warn('[DEPRECATED] POST /api/transcribe — migrate to Storage + Edge Function process-audio')
-
   // Content-Lengthで早期にファイルサイズ超過を検出
   const contentLength = parseInt(request.headers.get('content-length') || '0', 10)
   if (contentLength > MAX_AUDIO_SIZE) {
@@ -96,16 +94,28 @@ export const POST = withApi(async (request, { userId }) => {
     },
   })
 
-  return {
-    segment: {
-      id: segment.id,
-      sessionId: session.id,
-      segmentNo,
-      text,
-      sttStatus: segment.sttStatus,
+  return NextResponse.json(
+    {
+      success: true,
+      data: {
+        segment: {
+          id: segment.id,
+          sessionId: session.id,
+          segmentNo,
+          text,
+          sttStatus: segment.sttStatus,
+        },
+        _deprecated: 'This endpoint is deprecated. Use Storage upload + Edge Function process-audio instead.',
+      },
     },
-    _deprecated: 'This endpoint is deprecated. Use Storage upload + Edge Function process-audio instead.',
-  }
+    {
+      headers: {
+        'Deprecation': 'true',
+        'Sunset': '2026-06-01',
+        'Link': '</docs/migration>; rel="deprecation"',
+      },
+    }
+  )
 }, { rateLimit: { requests: 10, window: '1 m' } })
 
 export const GET = withApi(async (request, { userId }) => {
