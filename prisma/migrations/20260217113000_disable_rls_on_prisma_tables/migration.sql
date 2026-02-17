@@ -1,0 +1,20 @@
+-- Root-cause fix:
+-- RLS enabled without policies causes deterministic query failures
+-- for server-side Prisma access on authenticated endpoints.
+-- Disable RLS for Prisma-managed backend tables.
+
+ALTER TABLE IF EXISTS public.transcripts DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.bunjins DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.rule_trees DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.rule_tree_nodes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.published_versions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.sessions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.segments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.proposals DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.tasks DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.weekly_executions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.swls_responses DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.memories DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.user_settings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.audio_deletion_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public._prisma_migrations DISABLE ROW LEVEL SECURITY;
