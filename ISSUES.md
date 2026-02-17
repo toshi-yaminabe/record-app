@@ -2,7 +2,7 @@
 
 > 詳細・対応履歴は全て [GitHub Issues](https://github.com/toshi-yaminabe/record-app/issues) で管理。
 > このファイルはアクティブな課題の参照用サマリー。完了したら削除する。
-> **最終更新:** 2026-02-17（残3件: #29, #32, #34）
+> **最終更新:** 2026-02-17（全Issue解決済み）
 
 ---
 
@@ -22,42 +22,6 @@
 
 ---
 
-## HIGH
-
-### [#29](https://github.com/toshi-yaminabe/record-app/issues/29) テストカバレッジ不足（目標80%、現状推定30%）
-
-| 項目 | 内容 |
-|------|------|
-| **領域** | backend / flutter |
-| **複雑度** | L |
-
-**現状:** 78テスト通過（middleware, sessions, authorization, api-routes, service-lifecycle）。Flutterテスト0個。
-**不足:** E1クリティカルパス（transcribe/segments）、E3（proposals）、Flutter widget/integration。
-
----
-
-### [#32](https://github.com/toshi-yaminabe/record-app/issues/32) オフラインキュー2DB統合検討
-
-| 項目 | 内容 |
-|------|------|
-| **領域** | flutter |
-| **複雑度** | M |
-| **UX影響** | E1 |
-
-**問題:** offline_queue_db(190行) + pending_transcribe_store(259行)の分離。統合で33%削減見込み。
-
----
-
-### [#34](https://github.com/toshi-yaminabe/record-app/issues/34) Flutter通信・ローカルデータのセキュリティ
-
-| 項目 | 内容 |
-|------|------|
-| **領域** | flutter |
-| **複雑度** | M |
-| **UX影響** | E1, E5 |
-
-**問題:** HTTPS強制なし、SQLite平文保存。HTTPS強制 + SQLCipher暗号化必要。
-
----
+*現在オープンなIssueはありません。新規課題は [GitHub Issues](https://github.com/toshi-yaminabe/record-app/issues) に起票してください。*
 
 <!-- sync: 2026-02-17T00:00:00Z -->

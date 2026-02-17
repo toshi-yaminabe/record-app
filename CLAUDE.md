@@ -181,8 +181,5 @@ vercel deploy --prod
 - **対応時**: issue番号をコミットメッセージに含める (`fix #5: ...`)
 - **完了時**: ISSUES.md から該当行を削除（GitHub側で自動close）
 
-### 現在のブロッカー (CRITICAL)
-- [#4](https://github.com/toshi-yaminabe/record-app/issues/4) 認証がモック
-- [#5](https://github.com/toshi-yaminabe/record-app/issues/5) Vercel DB接続 database:false
-- [#6](https://github.com/toshi-yaminabe/record-app/issues/6) APIレスポンスエンベロープ不一致
-- [#7](https://github.com/toshi-yaminabe/record-app/issues/7) オフラインキューリプレイ破損
+### 現在のブロッカー
+なし（2026-02-17時点で全Issue解決済み）

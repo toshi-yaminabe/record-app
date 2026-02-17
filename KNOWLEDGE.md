@@ -103,6 +103,12 @@ record-app/
 │       ├── main.dart             # アプリエントリポイント
 │       ├── core/                 # 定数・ロガー・エラー
 │       ├── data/                 # モデル・リポジトリ・ローカルDB
+│       │   └── local/            # SQLite統合DB (unified_queue.db, SQLCipher暗号化)
+│       │       ├── base_queue_db.dart          # 共通CRUDテンプレート
+│       │       ├── unified_queue_database.dart # シングルトンDB管理
+│       │       ├── migration_helper.dart       # 旧DB→統合DB + 平文→暗号化移行
+│       │       ├── secure_db_key_manager.dart  # SQLCipherパスフレーズ管理
+│       │       └── offline_queue_db.dart       # 汎用APIキュー (BaseQueueDB継承)
 │       ├── presentation/         # UI (pages/providers/widgets)
 │       └── services/             # 録音・文字起こし・オフライン
 ├── next.config.mjs               # Next.js設定 (ESM, bodySizeLimit: 10mb)
@@ -123,7 +129,8 @@ record-app/
 | 状態管理 | Riverpod | 2.6.x |
 | 録音 | record パッケージ | 5.2.x |
 | バックグラウンド | flutter_background_service | 5.0.x |
-| ローカルDB | sqflite | 2.4.x |
+| ローカルDB | sqflite_sqlcipher (SQLCipher暗号化) | 3.1.x |
+| セキュアストレージ | flutter_secure_storage | 9.2.x |
 | ホスティング | Vercel | - |
 
 ---
@@ -720,7 +727,7 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Flutter as Flutter App
-    participant Queue as Offline Queue (sqflite)
+    participant Queue as Unified Queue (SQLCipher)
     participant Monitor as Connectivity Monitor
     participant API as Next.js API
 
@@ -820,15 +827,16 @@ flowchart LR
 > 詳細な課題管理・対応履歴は [GitHub Issues](https://github.com/toshi-yaminabe/record-app/issues) で管理。
 > ローカル参照: **ISSUES.md** (アクティブ課題のサマリーのみ + UXコンテキスト)。
 
-### CRITICAL
+### 現在のオープンIssue
 
-- **#4 認証がモック**: Supabase Auth基盤実装済み（withApi JWT検証 + LoginPage）。DEV_AUTH_BYPASS=true で開発中。#41完了で解消
+なし（2026-02-17時点で全Issue解決済み）
 
-### HIGH
+### 解決済み（2026-02-17 Phase 2バッチ修正）
 
-- **#29 テストカバレッジ不足**: 78テスト通過（推定30%）。目標80%。E1パス・Flutter未テスト
-- **#32 オフラインキュー2DB統合**: offline_queue_db + pending_transcribe_store の分離。統合スプリント推奨
-- **#34 Flutter通信・ローカルデータセキュリティ**: HTTPS強制なし、SQLite平文保存。#32完了後に実施
+- ~~#4 認証がモック~~ (Supabase Auth基盤実装済み、CLOSED)
+- ~~#29 テストカバレッジ不足~~ (バックエンド85.84% statements, Flutter 59テスト通過)
+- ~~#32 オフラインキュー2DB統合~~ (unified_queue.db + BaseQueueDB + MigrationHelper)
+- ~~#34 Flutter通信・ローカルデータセキュリティ~~ (HTTPS強制 + SQLCipher暗号化)
 
 ### 解決済み（2026-02-17バッチ修正）
 
@@ -1026,6 +1034,6 @@ seed実行時に5件作成。カスタム分人は最大3件追加可能 (計8�
 ### 9.5 調査で判明した事実
 
 - **Proposalタイプ**: KNOWLEDGE.md等で「4タイプ」と記載される箇所があるが、実装は **2タイプ（SUMMARY / TASK）のみ**（`lib/constants.js:38-41`）
-- **PendingTranscribeStore**: 設計段階で参照はあるが、ファイルとして未実装の可能性あり
+- **PendingTranscribeStore**: BaseQueueDB継承でunified_queue.dbに統合済み (#32で実装完了)
 - **RecordingService IPC簡素化**: 調査の結果、5つのStreamSubscription + readyハンドシェイクは**明示性が高くバグ追跡が容易**であり、簡素化は**E1リスク大のため非推奨**
 - **PublishedVersion treeJson + RuleTreeNode二重管理**: treeJsonはセッション実行用スナップショット、RuleTreeNodeはドラフト編集用。役割分離は妥当だが、参照先の明確化が必要
