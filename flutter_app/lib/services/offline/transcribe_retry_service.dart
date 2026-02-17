@@ -3,16 +3,17 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import '../../core/app_logger.dart';
 import '../../core/constants.dart';
-import '../transcribe/transcribe_service.dart';
+import '../transcribe/server_engine.dart';
+import '../transcribe/transcribe_request_context.dart';
 import 'pending_transcribe_store.dart';
 
 /// 文字起こしリトライサービス
 ///
 /// PendingTranscribeStore からエントリを取得し、
-/// TranscribeService.transcribe() を直接呼び出してリトライする。
+/// ServerEngine.transcribe() を呼び出してリトライする。
 class TranscribeRetryService {
   final PendingTranscribeStore _store;
-  final TranscribeService _transcribeService;
+  final ServerEngine _serverEngine;
   bool _isRetrying = false;
 
   /// 指数バックオフの基本遅延（ミリ秒）
@@ -26,9 +27,9 @@ class TranscribeRetryService {
 
   TranscribeRetryService({
     required PendingTranscribeStore store,
-    required TranscribeService transcribeService,
+    required ServerEngine serverEngine,
   })  : _store = store,
-        _transcribeService = transcribeService;
+        _serverEngine = serverEngine;
 
   /// pending状態のエントリをリトライ
   Future<void> retryPending() async {
@@ -54,7 +55,7 @@ class TranscribeRetryService {
           AppLogger.queue(
               'transcribe retry: entry#${entry.id} -> ${entry.filePath}');
 
-          await _transcribeService.transcribe(
+          final context = TranscribeRequestContext(
             filePath: entry.filePath,
             deviceId: entry.deviceId,
             sessionId: entry.sessionId,
@@ -62,6 +63,7 @@ class TranscribeRetryService {
             startAt: entry.startAt,
             endAt: entry.endAt,
           );
+          await _serverEngine.transcribe(context);
 
           // 成功 → エントリ削除 + ファイル削除
           await _store.markCompleted(entry.id);
@@ -113,41 +115,49 @@ class TranscribeRetryService {
   /// 4xxエラー（413, 400, 404等）→ 即dead_letter化
   /// 5xxエラー → リトライ対象（一時的なサーバーエラーの可能性）
   bool _isPermanentError(dynamic error) {
-    // TranscribeException でstatusCodeを持つ場合
-    if (error.toString().contains('TranscribeException')) {
-      final message = error.toString();
-      // ステータスコードを抽出（例: "文字起こし失敗 (413): ... (HTTP 413)"）
-      final statusMatch = RegExp(r'\((\d{3})\)').firstMatch(message);
-      if (statusMatch != null) {
-        final statusCode = int.parse(statusMatch.group(1)!);
-        // 4xxエラーは永久エラー（クライアントエラー）
-        if (statusCode >= 400 && statusCode < 500) {
-          return true;
-        }
+    final message = error.toString();
+
+    // ServerEngineException でstatusCodeを持つ場合
+    if (error is ServerEngineException && error.statusCode != null) {
+      final statusCode = error.statusCode!;
+      if (statusCode >= 400 && statusCode < 500) {
+        return true;
       }
     }
+
+    // ステータスコードを抽出（例: "文字起こし失敗 (413): ... (HTTP 413)"）
+    final statusMatch = RegExp(r'\((\d{3})\)').firstMatch(message);
+    if (statusMatch != null) {
+      final statusCode = int.parse(statusMatch.group(1)!);
+      if (statusCode >= 400 && statusCode < 500) {
+        return true;
+      }
+    }
+
     // http.ClientException の場合
     if (error is http.ClientException) {
-      final message = error.toString();
-      final statusMatch = RegExp(r'(\d{3})').firstMatch(message);
-      if (statusMatch != null) {
-        final statusCode = int.parse(statusMatch.group(1)!);
+      final clientMessage = error.toString();
+      final clientMatch = RegExp(r'(\d{3})').firstMatch(clientMessage);
+      if (clientMatch != null) {
+        final statusCode = int.parse(clientMatch.group(1)!);
         if (statusCode >= 400 && statusCode < 500) {
           return true;
         }
       }
     }
+
     // HttpException の場合
     if (error is HttpException) {
-      final message = error.message;
-      if (message.contains('413') || // Payload Too Large
-          message.contains('400') || // Bad Request
-          message.contains('404') || // Not Found
-          message.contains('415')) {
+      final httpMessage = error.message;
+      if (httpMessage.contains('413') || // Payload Too Large
+          httpMessage.contains('400') || // Bad Request
+          httpMessage.contains('404') || // Not Found
+          httpMessage.contains('415')) {
         // Unsupported Media Type
         return true;
       }
     }
+
     // その他のエラーはリトライ対象
     return false;
   }
