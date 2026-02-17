@@ -2,37 +2,37 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('Repository timeout configuration', () {
-    test('SessionRepository has correct timeout values', () {
-      final source =
-          File('lib/data/repositories/session_repository.dart').readAsStringSync();
+  group('AuthenticatedClient timeout configuration', () {
+    test('AuthenticatedClient has default GET timeout of 15s', () {
+      final source = File('lib/data/repositories/authenticated_client.dart')
+          .readAsStringSync();
 
-      // GET requests use 15s timeout
-      expect(source, contains('timeout(const Duration(seconds: 15))'));
-
-      // POST/PATCH requests use 30s timeout
-      expect(source, contains('timeout(const Duration(seconds: 30))'));
+      // GET requests default to 15s timeout
+      expect(source, contains("Duration(seconds: 15)"));
     });
 
-    test('BunjinRepository has correct timeout values', () {
-      final source =
-          File('lib/data/repositories/bunjin_repository.dart').readAsStringSync();
-      expect(source, contains('timeout(const Duration(seconds: 15))'));
-      expect(source, contains('timeout(const Duration(seconds: 30))'));
+    test('AuthenticatedClient has default POST/PATCH timeout of 30s', () {
+      final source = File('lib/data/repositories/authenticated_client.dart')
+          .readAsStringSync();
+
+      // POST/PATCH requests default to 30s timeout
+      expect(source, contains("Duration(seconds: 30)"));
     });
 
-    test('TaskRepository has correct timeout values', () {
-      final source =
-          File('lib/data/repositories/task_repository.dart').readAsStringSync();
-      expect(source, contains('timeout(const Duration(seconds: 15))'));
-      expect(source, contains('timeout(const Duration(seconds: 30))'));
-    });
+    test('Repositories delegate to AuthenticatedClient', () {
+      // SessionRepository uses client.post/get/patch (no direct timeout)
+      final sessionSource =
+          File('lib/data/repositories/session_repository.dart')
+              .readAsStringSync();
+      expect(sessionSource, contains('client.post'));
+      expect(sessionSource, contains('client.get'));
+      expect(sessionSource, contains('client.patch'));
 
-    test('ProposalRepository has correct timeout values', () {
-      final source =
-          File('lib/data/repositories/proposal_repository.dart').readAsStringSync();
-      expect(source, contains('timeout(const Duration(seconds: 15))'));
-      expect(source, contains('timeout(const Duration(seconds: 30))'));
+      // BunjinRepository uses client methods
+      final bunjinSource =
+          File('lib/data/repositories/bunjin_repository.dart')
+              .readAsStringSync();
+      expect(bunjinSource, contains('client.'));
     });
   });
 }
