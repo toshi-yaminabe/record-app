@@ -135,6 +135,10 @@ model Segment {
   text            String?
   sttStatus       String    @default("PENDING") @map("stt_status") // "PENDING" | "PROCESSING" | "DONE" | "FAILED"
   sttAttemptCount Int       @default(0) @map("stt_attempt_count")
+  selectedMode      String?   @map("selected_mode")       // "SERVER" | "LOCAL"
+  executedMode      String?   @map("executed_mode")       // "SERVER" | "LOCAL"
+  fallbackReason    String?   @map("fallback_reason")
+  localEngineVersion String?  @map("local_engine_version")
   bunjinId          String?   @map("bunjin_id")
   storageObjectPath String?   @map("storage_object_path")
   createdAt         DateTime  @default(now()) @map("created_at")
