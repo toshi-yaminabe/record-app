@@ -11,7 +11,8 @@
     "test": "vitest run --exclude __tests__/integration/**",
     "test:integration": "RUN_INTEGRATION_TESTS=true vitest run __tests__/integration/",
     "test:all": "RUN_INTEGRATION_TESTS=true vitest run",
-    "test:watch": "vitest --exclude __tests__/integration/**"
+    "test:watch": "vitest --exclude __tests__/integration/**",
+    "test:coverage": "vitest run --coverage --exclude __tests__/integration/**"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -29,6 +30,7 @@
     "eslint": "^8.57.0",
     "eslint-config-next": "^15.0.0",
     "prisma": "^6.2.1",
+    "@vitest/coverage-v8": "^4.0.18",
     "vitest": "^4.0.18"
   },
   "prisma": {
