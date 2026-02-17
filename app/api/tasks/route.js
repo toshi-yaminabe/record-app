@@ -5,6 +5,7 @@
 
 import { withApi } from '@/lib/middleware.js'
 import { listTasks, createTask } from '@/lib/services/task-service.js'
+import { validateBody, taskCreateSchema } from '@/lib/validators.js'
 
 export const GET = withApi(async (request, { userId }) => {
   const { searchParams } = new URL(request.url)
@@ -25,6 +26,7 @@ export const GET = withApi(async (request, { userId }) => {
 
 export const POST = withApi(async (request, { userId }) => {
   const body = await request.json()
-  const task = await createTask(userId, body)
+  const validated = validateBody(taskCreateSchema, body)
+  const task = await createTask(userId, validated)
   return { task }
 })

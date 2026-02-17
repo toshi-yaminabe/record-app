@@ -4,6 +4,7 @@
 
 import { withApi } from '@/lib/middleware'
 import { getSegment, updateSegmentSttStatus } from '@/lib/services/segment-service'
+import { validateBody, segmentUpdateSchema } from '@/lib/validators.js'
 
 /**
  * GET /api/segments/:id
@@ -21,7 +22,8 @@ export const GET = withApi(async (request, { userId, params }) => {
 export const PATCH = withApi(async (request, { userId, params }) => {
   const { id } = params
   const body = await request.json()
-  const { sttStatus, text } = body
+  const validated = validateBody(segmentUpdateSchema, body)
+  const { sttStatus, text } = validated
 
   if (!sttStatus && text === undefined) {
     const { ValidationError } = await import('@/lib/errors')

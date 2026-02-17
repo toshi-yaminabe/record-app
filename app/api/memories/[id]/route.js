@@ -5,11 +5,13 @@
 import { withApi } from '@/lib/middleware.js'
 import { updateMemoryText } from '@/lib/services/memory-service.js'
 import { ValidationError } from '@/lib/errors.js'
+import { validateBody, memoryUpdateSchema } from '@/lib/validators.js'
 
 export const PATCH = withApi(async (request, { userId, params }) => {
   const { id } = params
   const body = await request.json()
-  const { text } = body
+  const validated = validateBody(memoryUpdateSchema, body)
+  const { text } = validated
 
   if (!text || typeof text !== 'string' || text.trim().length === 0) {
     throw new ValidationError('text is required and must be a non-empty string')

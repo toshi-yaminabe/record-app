@@ -5,11 +5,13 @@
 
 import { withApi } from '@/lib/middleware.js'
 import { updateBunjin, deleteBunjin } from '@/lib/services/bunjin-service.js'
+import { validateBody, bunjinUpdateSchema } from '@/lib/validators.js'
 
 export const PATCH = withApi(async (request, { userId, params }) => {
   const { id } = params
   const body = await request.json()
-  const bunjin = await updateBunjin(userId, id, body)
+  const validated = validateBody(bunjinUpdateSchema, body)
+  const bunjin = await updateBunjin(userId, id, validated)
   return { bunjin }
 })
 

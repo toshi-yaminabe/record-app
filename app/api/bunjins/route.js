@@ -5,6 +5,7 @@
 
 import { withApi } from '@/lib/middleware.js'
 import { listBunjins, createBunjin } from '@/lib/services/bunjin-service.js'
+import { validateBody, bunjinCreateSchema } from '@/lib/validators.js'
 
 export const GET = withApi(async (request, { userId }) => {
   const bunjins = await listBunjins(userId)
@@ -13,7 +14,8 @@ export const GET = withApi(async (request, { userId }) => {
 
 export const POST = withApi(async (request, { userId }) => {
   const body = await request.json()
-  const { slug, displayName, description, color, icon } = body
+  const validated = validateBody(bunjinCreateSchema, body)
+  const { slug, displayName, description, color, icon } = validated
   const bunjin = await createBunjin(userId, { slug, displayName, description, color, icon })
   return { bunjin }
 })

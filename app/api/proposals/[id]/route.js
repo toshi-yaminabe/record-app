@@ -5,11 +5,13 @@
 import { withApi } from '@/lib/middleware.js'
 import { confirmProposal, rejectProposal } from '@/lib/services/proposal-service.js'
 import { ValidationError } from '@/lib/errors.js'
+import { validateBody, proposalUpdateSchema } from '@/lib/validators.js'
 
 export const PATCH = withApi(async (request, { userId, params }) => {
   const { id } = params
   const body = await request.json()
-  const { status } = body
+  const validated = validateBody(proposalUpdateSchema, body)
+  const { status } = validated
 
   if (status === 'CONFIRMED') {
     const result = await confirmProposal(userId, id)

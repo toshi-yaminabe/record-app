@@ -6,6 +6,7 @@
 import { withApi } from '@/lib/middleware.js'
 import { listSegments, createSegment } from '@/lib/services/segment-service.js'
 import { ValidationError } from '@/lib/errors.js'
+import { validateBody, segmentCreateSchema } from '@/lib/validators.js'
 
 export const GET = withApi(async (request, { userId }) => {
   const { searchParams } = new URL(request.url)
@@ -19,7 +20,8 @@ export const GET = withApi(async (request, { userId }) => {
 
 export const POST = withApi(async (request, { userId }) => {
   const body = await request.json()
-  const { sessionId, segmentNo, startAt, endAt, storageObjectPath } = body
+  const validated = validateBody(segmentCreateSchema, body)
+  const { sessionId, segmentNo, startAt, endAt, storageObjectPath } = validated
 
   if (!sessionId) {
     throw new ValidationError('sessionId is required')

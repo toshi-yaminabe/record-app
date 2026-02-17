@@ -6,6 +6,7 @@
 import { withApi } from '@/lib/middleware.js'
 import { listMemories, createMemory } from '@/lib/services/memory-service.js'
 import { ValidationError } from '@/lib/errors.js'
+import { validateBody, memoryCreateSchema } from '@/lib/validators.js'
 
 export const GET = withApi(async (request, { userId }) => {
   const { searchParams } = new URL(request.url)
@@ -21,7 +22,8 @@ export const GET = withApi(async (request, { userId }) => {
 
 export const POST = withApi(async (request, { userId }) => {
   const body = await request.json()
-  const { text, bunjinId, sourceRefs } = body
+  const validated = validateBody(memoryCreateSchema, body)
+  const { text, bunjinId, sourceRefs } = validated
 
   if (!text || typeof text !== 'string' || text.trim().length === 0) {
     throw new ValidationError('text is required and must be a non-empty string')

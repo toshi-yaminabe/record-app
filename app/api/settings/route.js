@@ -8,6 +8,7 @@ import { withApi } from '@/lib/middleware.js'
 import { prisma } from '@/lib/prisma.js'
 import { encrypt } from '@/lib/crypto.js'
 import { ValidationError } from '@/lib/errors.js'
+import { validateBody, settingsSchema } from '@/lib/validators.js'
 
 export const GET = withApi(async (request, { userId }) => {
   const settings = await prisma.userSettings.findUnique({
@@ -24,7 +25,8 @@ export const GET = withApi(async (request, { userId }) => {
 
 export const PUT = withApi(async (request, { userId }) => {
   const body = await request.json()
-  const { geminiApiKey } = body
+  const validated = validateBody(settingsSchema, body)
+  const { geminiApiKey } = validated
 
   if (geminiApiKey !== undefined && geminiApiKey !== null) {
     if (typeof geminiApiKey !== 'string') {
