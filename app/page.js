@@ -3,38 +3,26 @@
 import { useState } from 'react'
 import { Header } from './components/header'
 import { TabNavigation } from './components/tab-navigation'
-import { ArchitectureView } from './features/architecture/architecture-view'
 import { HistoryView } from './features/history/history-view'
 import { SettingsView } from './features/settings/settings-view'
 import { TaskListView } from './features/tasks/task-list-view'
 import { DailyCheckinView } from './features/daily/daily-checkin-view'
-import { WeeklyReviewView } from './features/weekly/weekly-review-view'
 import { BunjinManagerView } from './features/bunjins/bunjin-manager-view'
-import { MemoryListView } from './features/memories/memory-list-view'
-import { SwlsFormView } from './features/swls/swls-form-view'
-import { SessionListView } from './features/sessions/session-list-view'
 
 export default function Dashboard() {
-  const [activeTab, setActiveTab] = useState('architecture')
+  const [activeTab, setActiveTab] = useState('daily')
 
   const tabs = [
-    { id: 'architecture', label: 'アーキテクチャ', icon: '🔗' },
-    { id: 'tasks', label: 'タスク', icon: '📝' },
     { id: 'daily', label: 'Daily', icon: '☀️' },
-    { id: 'weekly', label: 'Weekly', icon: '📅' },
+    { id: 'tasks', label: 'タスク', icon: '📝' },
     { id: 'bunjins', label: '分人', icon: '👥' },
-    { id: 'memories', label: '思い出', icon: '📖' },
-    { id: 'swls', label: 'SWLS', icon: '💭' },
-    { id: 'sessions', label: 'セッション', icon: '🎙️' },
     { id: 'history', label: '履歴', icon: '📝' },
     { id: 'settings', label: '設定', icon: '⚙️' },
   ]
 
-  const progress = 57
-
   return (
     <div className="dashboard">
-      <Header progress={progress} />
+      <Header />
 
       <section className="download-section">
         <div className="download-card">
@@ -72,14 +60,9 @@ export default function Dashboard() {
 
       <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {activeTab === 'architecture' && <ArchitectureView />}
-      {activeTab === 'tasks' && <TaskListView />}
       {activeTab === 'daily' && <DailyCheckinView />}
-      {activeTab === 'weekly' && <WeeklyReviewView />}
+      {activeTab === 'tasks' && <TaskListView />}
       {activeTab === 'bunjins' && <BunjinManagerView />}
-      {activeTab === 'memories' && <MemoryListView />}
-      {activeTab === 'swls' && <SwlsFormView />}
-      {activeTab === 'sessions' && <SessionListView />}
       {activeTab === 'history' && <HistoryView />}
       {activeTab === 'settings' && <SettingsView />}
 
