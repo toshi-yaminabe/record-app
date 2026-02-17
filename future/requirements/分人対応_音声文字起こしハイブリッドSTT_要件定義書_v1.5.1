@@ -1,196 +1,269 @@
-# 分人対応 音声文字起こし（16時間セッション）ハイブリッドSTT 要件定義書
+# 分人対応 音声文字起こし（16時間セッション）ハイブリッドSTT 仕様書
 
-**作成日**: 2026-02-18  
-**バージョン**: 1.5.2  
-**ステータス**: ドラフト（実施可能性レビュー反映版）  
-**前版**: `【ARCHIVE】分人対応_音声文字起こしハイブリッドSTT_要件定義書_v1.5.0`
-
----
-
-## 1. 決定事項（本版で確定）
-
-1. Local STT第一候補は **Whisper系（whisper.cpp）**
-2. ベンチマーク基準端末は **Google Pixel 9a**
-3. Localモード時のサーバー送信は **テキストのみ**（音声は送信しない）
-4. 将来を見据え、**複数AIエンジン切替可能**な構成にする
-5. 方式変更適用は **次セグメントから**
-6. `selectedMode / executedMode / fallbackReason` は **DB永続化必須**
-7. KPI比較は **日次主軸（週次補助）**
+**更新日**: 2026-02-18  
+**ドキュメント版**: 1.6.0  
+**ステータス**: 実装仕様レビュー版（実施可能性 + 実装指示）  
+**前版**: v1.5.2（同ファイル）
 
 ---
 
-## 2. 実施可能性レビュー（Feasibility Review）
+## 0. この文書の目的
 
-## 2.1 技術実現性
+この文書は「要件定義」から一段上げ、**実装者が迷わず機能を作れる仕様書レベル**として記述する。
 
-| 項目 | 評価 | 根拠 | 対策 |
-|---|---|---|---|
-| Flutterでのモード選択/永続化 | 高 | 既存実装でSharedPreferences利用中 | 現実装を拡張 |
-| Local STT (Whisper系) | 中 | Androidで実績多数だが端末差あり | Pixel 9aを基準に段階導入 |
-| 複数エンジン切替 | 中 | 抽象化設計が必要 | Engine interfaceを先行導入 |
-| テキストのみ送信 | 高 | API契約の変更で実装可能 | Local専用エンドポイント定義 |
-| 長時間バックグラウンド運用 | 中 | 熱/バッテリー制約が強い | ジョブ制御・フォールバック実装 |
-
-## 2.2 運用実現性
-
-- 日次運用でモニタリング可能（フォールバック率、処理時間、失敗率）
-- DBに `executedMode` と `fallbackReason` を残すことで障害解析が可能
-- 端末差異は「基準端末達成 + 非基準端末はbest effort」で管理可能
-
-## 2.3 リスクと判断
-
-- 最大リスクは **熱/電池制約によるLocal推論の不安定化**
-- 対応として、次を必須化する
-  - タイムアウト制御
-  - 失敗時Serverフォールバック
-  - mode実行実績の永続化
-
-**結論**: Phase分割を前提に実施可能。Phase1/2のゲート判定で進行可否を管理する。
+- 現在構成（実コード）を前提に、変更箇所を網羅する
+- UI / Provider / Service / API / DB / 監査 / KPI を一貫定義する
+- 受け入れ基準・テスト観点まで含める
 
 ---
 
-## 3. 目的
+## 1. 変更方針（確定）
 
-Web SSOTの思想を維持しつつ、Server STT / Local STTの両モードを同一プロダクトで運用可能にする。
-
-- **Server STTモード**: 既存どおりサーバーで音声文字起こし
-- **Local STTモード**: 端末内（Whisper系）で文字起こしし、テキストのみ送信
-
----
-
-## 4. 機能要件（Functional Requirements）
-
-## 4.1 認証後のモード選択
-
-- FR-001: ログイン後、mode未選択ユーザーには方式選択画面を表示する
-- FR-002: 選択肢は `Server` / `Local` の2つを必須表示する
-- FR-003: 選択結果を端末に永続化する
-- FR-004: mode選択済みユーザーは直接ホームへ遷移する
-
-## 4.2 モード変更
-
-- FR-005: 設定画面からmode変更可能
-- FR-006: 変更反映タイミングは **次セグメントから**
-- FR-007: 変更時にUI通知（トースト等）を表示する
-
-## 4.3 文字起こし実行
-
-- FR-008: セグメント生成時に `selectedMode` を固定する
-- FR-009: Local選択時はWhisper系エンジンを第一優先で利用する
-- FR-010: Local失敗時はServerへフォールバック可能とする
-- FR-011: `executedMode` は実際に実行された方式を必ず記録する
-
-## 4.4 送信データ境界
-
-- FR-012: Localモード時、サーバーへ送るペイロードは **テキスト+最小メタのみ**
-- FR-013: Localモード時、音声ファイルをサーバーへ送信しない
-- FR-014: Serverモード時は既存音声アップロード経路を維持する
-
-## 4.5 監査・永続化
-
-- FR-015: 各セグメントに `selectedMode` を保存する
-- FR-016: 各セグメントに `executedMode` を保存する
-- FR-017: フォールバック発生時は `fallbackReason` を保存する
-- FR-018: 上記3項目はログだけでなくDB永続化する
-
-## 4.6 KPI
-
-- FR-019: KPIは日次で集計・可視化する
-- FR-020: 週次はサマリ比較用途で補助利用する
-- FR-021: Server/Local別の成功率・失敗率・処理時間を分離集計する
+1. STTモードは `SERVER` / `LOCAL` を提供する
+2. Local STT第一候補は **Whisper系（whisper.cpp）**
+3. Localモードではサーバー送信は **テキストのみ**（音声非送信）
+4. mode変更は **次セグメントから適用**
+5. `selectedMode / executedMode / fallbackReason` は **DB永続化必須**
+6. KPIは **日次主軸 + 週次補助**
+7. 基準端末は **Google Pixel 9a**
 
 ---
 
-## 5. 非機能要件（NFR）
+## 2. 現在構成レビュー（実装済み/未実装の整理）
 
-- NFR-001: Pixel 9aで60秒音声のLocal STTは P95 20秒以内
-- NFR-002: Pixel 9aで300秒音声のLocal STTは P95 90秒以内
-- NFR-003: 連続2時間運用でクラッシュ0件
-- NFR-004: フォールバック時、ユーザー操作不要で処理継続
-- NFR-005: テキスト送信APIは既存認証/RLS要件を満たす
+## 2.1 実装済み（活かす）
+
+- 認証後にmode未選択なら選択画面へ誘導
+- `transcribe_mode_provider` によるmode永続化
+- 設定画面からmode変更
+- `recording_provider -> transcribe_service` への mode 引き回し
+- Local選択時にServer経路へフォールバック（暫定ログ）
+
+## 2.2 未実装（今回以降で実装必須）
+
+- Localテキスト送信専用API契約の本実装
+- DBへの `selectedMode / executedMode / fallbackReason` 保存
+- Local STTエンジン抽象化 (`TranscribeEngine`) と実装 (`WhisperEngine`)
+- `EngineResolver` による実行方式決定
+- 日次KPI集計/可視化（mode別）
 
 ---
 
-## 6. アーキテクチャ要件
+## 3. 機能仕様（FR）
 
-## 6.1 抽象化
+## 3.1 認証・画面遷移
 
-- `TranscribeEngine` interfaceを定義
-- 必須実装:
-  - `WhisperEngine`
-  - `ServerFallbackEngine`
-- 将来実装:
-  - `AltLocalEngine`（別AIエンジン）
+- FR-001: ログイン済み + mode未選択 → `TranscribeModeSelectionPage` 表示
+- FR-002: mode選択済み → `HomePage` へ遷移
+- FR-003: mode選択はSharedPreferencesに保存される
 
-## 6.2 ルーティング
+## 3.2 設定変更
 
-- `EngineResolver` が以下を入力に実行方式を決定する
+- FR-004: 設定画面で現在modeを確認できる
+- FR-005: 設定画面でmode変更可能
+- FR-006: 変更は **次セグメントから** 適用
+
+## 3.3 セグメント処理
+
+- FR-007: セグメント作成時点で `selectedMode` を確定
+- FR-008: 実際に使用した方式を `executedMode` に記録
+- FR-009: Local失敗時にServerへフォールバック可能
+- FR-010: フォールバック時は `fallbackReason` を必須記録
+
+## 3.4 データ境界
+
+- FR-011: Localモードでは音声をサーバー送信しない
+- FR-012: Localモード送信データは `text + metadata` のみ
+- FR-013: Serverモードは既存音声送信経路を維持
+
+## 3.5 監査・分析
+
+- FR-014: `selectedMode/executedMode/fallbackReason` をDB保存
+- FR-015: mode別日次KPIを算出可能にする
+
+---
+
+## 4. 非機能仕様（NFR）
+
+- NFR-001: Pixel 9aで60秒音声Local STT P95 <= 20秒
+- NFR-002: Pixel 9aで300秒音声Local STT P95 <= 90秒
+- NFR-003: 連続2時間運用でクラッシュ0
+- NFR-004: Local失敗時はユーザー操作なしでフォールバック
+- NFR-005: mode切替でアプリ再起動不要（次セグメント反映）
+
+---
+
+## 5. 実装変更点（どこをどう変えるか）
+
+## 5.1 Flutter App層
+
+### A. `core/transcribe_mode.dart`
+- 変更: enumは維持
+- 追加: API送信用の文字列変換（`toApiValue`, `fromApiValue`）
+
+### B. `presentation/providers/transcribe_mode_provider.dart`
+- 変更: mode保存は維持
+- 追加: `effectiveModeForSegment()` を追加し、セグメント開始時のmode確定を担保
+
+### C. `presentation/providers/recording_provider.dart`
+- 変更: `_transcribeAndDelete` 開始時に `selectedMode` をスナップショット
+- 追加: `TranscribeRequestContext` を生成し serviceへ渡す
   - `selectedMode`
-  - 端末状態（温度/リソース）
-  - エンジン可用性（モデル配置有無）
+  - `sessionId`
+  - `segmentNo`
+  - `deviceId`
+  - `startAt/endAt`
 
-## 6.3 データモデル（必須）
+### D. `services/transcribe/transcribe_service.dart`
+- 変更: 単一メソッド内分岐をやめ、Engineルーティングへ移行
+- 追加:
+  - `TranscribeEngine` interface
+  - `WhisperEngine`（Local）
+  - `ServerEngine`（既存 multipart）
+  - `EngineResolver`（実行方式決定）
+- 出力: `TranscribeResult` に以下を追加
+  - `selectedMode`
+  - `executedMode`
+  - `fallbackReason`
 
-- `transcribeMode`（= selectedMode）
+### E. `presentation/pages/settings/settings_page.dart`
+- 変更: mode表示は維持
+- 追加: 「次セグメントから反映」注記を明示
+
+---
+
+## 5.2 API層（Next.js）
+
+### A. 既存 `/api/transcribe`
+- 維持（Serverモード用）
+- Localモードからの音声アップロード要求は拒否（400）
+
+### B. 新規（または拡張）テキスト投入API
+
+推奨: `POST /api/transcribe/local`
+
+#### Request
+```json
+{
+  "sessionId": "uuid",
+  "segmentNo": 12,
+  "startAt": "2026-02-18T10:00:00Z",
+  "endAt": "2026-02-18T10:05:00Z",
+  "text": "文字起こし結果...",
+  "selectedMode": "LOCAL",
+  "executedMode": "LOCAL",
+  "fallbackReason": null,
+  "localEngineVersion": "whisper.cpp@1.0.0"
+}
+```
+
+#### Response
+```json
+{
+  "success": true,
+  "data": {
+    "segmentId": "uuid",
+    "sttStatus": "TRANSCRIBED"
+  }
+}
+```
+
+### C. バリデーション
+- `selectedMode` / `executedMode` は必須
+- `selectedMode=LOCAL` で `executedMode=SERVER` の場合のみ `fallbackReason` 必須
+
+---
+
+## 5.3 DB層（Prisma/Supabase）
+
+## A. `segments` 拡張（必須）
+- `selected_mode` ENUM(`SERVER`,`LOCAL`) NOT NULL
+- `executed_mode` ENUM(`SERVER`,`LOCAL`) NOT NULL
+- `fallback_reason` TEXT NULL
+- `local_engine_version` TEXT NULL
+
+## B. インデックス
+- `(user_id, created_at)`
+- `(executed_mode, created_at)`
+- `(selected_mode, executed_mode, created_at)`
+
+## C. マイグレーション方針
+- 既存データは `selected_mode=SERVER`, `executed_mode=SERVER` でバックフィル
+
+---
+
+## 6. 監査ログ仕様
+
+監査イベント `TranscribeExecuted` を追加し、必須項目:
+- `userId`
+- `sessionId`
+- `segmentId`
+- `selectedMode`
 - `executedMode`
 - `fallbackReason`
-- `localEngineVersion`
-- `sttProvider`
+- `durationMs`
+- `success`
 
 ---
 
-## 7. API要件
+## 7. KPI仕様（日次主軸）
 
-- Local用テキスト投入エンドポイントを正式化
-- Server用 `/api/transcribe` は後方互換で維持
-- Local時は音声multipartを禁止（バリデーションで拒否）
+## 7.1 日次必須指標
+- mode別処理件数
+- mode別成功率
+- mode別P95処理時間
+- Local→Serverフォールバック率
 
----
-
-## 8. Pixel 9aベンチマーク要件
-
-## 8.1 計測条件
-- 音声長: 30秒 / 60秒 / 300秒
-- 条件: 画面ON / 画面OFF / 充電中 / 非充電
-
-## 8.2 計測項目
-- 推論時間（avg/P95）
-- CPUピーク
-- メモリピーク
-- 温度警告回数
-- フォールバック率
-
-## 8.3 合否判定
-- NFR基準を満たした時のみ「Local正式導入可」と判定
+## 7.2 週次補助指標
+- 日次指標の週次平均
+- フォールバック理由Top N
 
 ---
 
-## 9. フェーズとゲート
+## 8. Pixel 9a ベンチマーク手順
 
-### Phase 1（基盤）
-- mode選択・設定変更
-- `selected/executed/fallback` データ通線
-- Local時テキストのみ送信を実装
-
-**ゲート1**: 監査項目がDBで取得可能
-
-### Phase 2（Whisper導入）
-- WhisperEngine導入
-- Pixel 9aベンチ実施
-
-**ゲート2**: NFR基準達成、重大障害なし
-
-### Phase 3（最適化）
-- 複数エンジン切替の本格運用
-- 端末状態に応じた切替最適化
+1. 30/60/300秒の固定音声セットを準備
+2. 条件別（画面ON/OFF, 充電有無）で5回ずつ実施
+3. P95, CPUピーク, メモリピーク, 温度警告回数を取得
+4. NFR基準を満たすまでモデル/パラメータ調整
 
 ---
 
-## 10. 受け入れ基準（Acceptance Criteria）
+## 9. テスト仕様（実装前提）
 
-- AC-001: ログイン直後にmode未選択なら選択画面が表示される
+## 9.1 Flutter単体テスト
+- mode未選択時遷移テスト
+- mode変更が次セグメントから反映されるテスト
+- Local失敗時フォールバックの結果整合テスト
+
+## 9.2 APIテスト
+- Localテキスト投入成功
+- Localで音声送信時に400拒否
+- fallbackReason必須バリデーション
+
+## 9.3 DB/統合テスト
+- migration後の既存行バックフィル確認
+- mode別KPIクエリ結果確認
+
+---
+
+## 10. 受け入れ基準（AC）
+
+- AC-001: mode未選択ユーザーは必ず選択画面を経由する
 - AC-002: mode変更は次セグメントから反映される
-- AC-003: Local時にサーバーへ音声が送信されない
-- AC-004: 各セグメントで `selectedMode/executedMode/fallbackReason` がDB確認できる
-- AC-005: KPIダッシュボードで日次のmode別指標が確認できる
+- AC-003: Localモードで音声はサーバー送信されない
+- AC-004: 各セグメントで `selected/executed/fallback` がDBで確認できる
+- AC-005: 日次ダッシュボードでmode別KPIが確認できる
+- AC-006: Pixel 9aでNFR基準を満たす
+
+---
+
+## 11. 実装順序（推奨）
+
+1. DBマイグレーション + API契約追加
+2. `TranscribeResult` 拡張と監査記録
+3. Engine抽象化導入（ServerEngine先行）
+4. WhisperEngine実装
+5. KPI集計/可視化
+6. Pixel 9aベンチ + チューニング
 
