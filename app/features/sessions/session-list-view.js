@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useApi } from '../../hooks/use-api'
 import { LoadingSkeleton } from '../../components/loading-skeleton'
+import { logger } from '@/lib/logger.js'
 import './sessions.css'
 
 export function SessionListView() {
@@ -18,7 +19,7 @@ export function SessionListView() {
       const data = await fetchApi('/api/sessions')
       setSessions(data.sessions || [])
     } catch (err) {
-      console.error('Failed to fetch sessions:', err)
+      logger.error('Failed to fetch sessions', { error: err.message })
     }
   }
 

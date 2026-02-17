@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useApi } from './use-api'
+import { logger } from '@/lib/logger.js'
 
 export function useProposals() {
   const { fetchApi, loading, error } = useApi()
@@ -16,7 +17,7 @@ export function useProposals() {
       setProposals(data.proposals || [])
       return data.proposals
     } catch (err) {
-      console.error('Failed to fetch proposals:', err)
+      logger.error('Failed to fetch proposals', { error: err.message })
       return []
     }
   }, [fetchApi])
@@ -31,7 +32,7 @@ export function useProposals() {
       setProposals(data.proposals || [])
       return data.proposals
     } catch (err) {
-      console.error('Failed to generate proposals:', err)
+      logger.error('Failed to generate proposals', { error: err.message })
       throw err
     }
   }, [fetchApi])
@@ -45,7 +46,7 @@ export function useProposals() {
       setProposals(prev => prev.map(p => p.id === proposalId ? data.proposal : p))
       return data.proposal
     } catch (err) {
-      console.error('Failed to confirm proposal:', err)
+      logger.error('Failed to confirm proposal', { error: err.message })
       throw err
     }
   }, [fetchApi])
@@ -59,7 +60,7 @@ export function useProposals() {
       setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'REJECTED' } : p))
       return data
     } catch (err) {
-      console.error('Failed to reject proposal:', err)
+      logger.error('Failed to reject proposal', { error: err.message })
       throw err
     }
   }, [fetchApi])

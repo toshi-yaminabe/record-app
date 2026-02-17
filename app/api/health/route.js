@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma.js'
 import { isGeminiAvailableAsync } from '@/lib/gemini.js'
+import { logger } from '@/lib/logger.js'
 
 const version = process.env.APP_VERSION || 'unknown'
 
@@ -18,7 +19,7 @@ export async function GET() {
         await prisma.$queryRaw`SELECT 1`
         databaseOk = true
       } catch (error) {
-        console.error('Database health check failed:', error)
+        logger.error('Database health check failed', { component: 'health', error: error.message })
       }
     }
 
@@ -31,7 +32,7 @@ export async function GET() {
       data: { ok, database: databaseOk, gemini: geminiOk, version },
     })
   } catch (error) {
-    console.error('Health check error:', error)
+    logger.error('Health check error', { component: 'health', error: error.message })
     return NextResponse.json(
       { success: false, error: 'Health check failed' },
       { status: 500 }

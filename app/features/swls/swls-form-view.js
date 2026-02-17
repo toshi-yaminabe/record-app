@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useApi } from '../../hooks/use-api'
+import { logger } from '@/lib/logger.js'
 import './swls.css'
 
 const questions = [
@@ -37,7 +38,7 @@ export function SwlsFormView() {
         setLastSubmitted(r.createdAt)
       }
     } catch (err) {
-      console.error('Failed to fetch SWLS:', err)
+      logger.error('Failed to fetch SWLS', { error: err.message })
     }
   }
 

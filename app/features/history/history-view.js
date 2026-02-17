@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { logger } from '@/lib/logger.js'
 
 export function HistoryView() {
   const [transcripts, setTranscripts] = useState([])
@@ -19,7 +20,7 @@ export function HistoryView() {
         setTranscripts(data.transcripts.slice(0, 10))
       }
     } catch (err) {
-      console.error(err)
+      logger.error('Failed to fetch history', { error: err.message })
     } finally {
       setLoading(false)
     }

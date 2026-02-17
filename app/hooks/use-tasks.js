@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useApi } from './use-api'
+import { logger } from '@/lib/logger.js'
 
 export function useTasks() {
   const { fetchApi, loading, error } = useApi()
@@ -17,7 +18,7 @@ export function useTasks() {
       setTasks(data.tasks || [])
       return data.tasks
     } catch (err) {
-      console.error('Failed to fetch tasks:', err)
+      logger.error('Failed to fetch tasks', { error: err.message })
       return []
     }
   }, [fetchApi])
@@ -31,7 +32,7 @@ export function useTasks() {
       setTasks(prev => [...prev, data.task])
       return data.task
     } catch (err) {
-      console.error('Failed to create task:', err)
+      logger.error('Failed to create task', { error: err.message })
       throw err
     }
   }, [fetchApi])
@@ -45,7 +46,7 @@ export function useTasks() {
       setTasks(prev => prev.map(t => t.id === taskId ? data.task : t))
       return data.task
     } catch (err) {
-      console.error('Failed to update task:', err)
+      logger.error('Failed to update task', { error: err.message })
       throw err
     }
   }, [fetchApi])

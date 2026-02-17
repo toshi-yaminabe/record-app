@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useApi } from './use-api'
+import { logger } from '@/lib/logger.js'
 
 export function useBunjins() {
   const { fetchApi, loading, error } = useApi()
@@ -13,7 +14,7 @@ export function useBunjins() {
       setBunjins(data.bunjins || [])
       return data.bunjins
     } catch (err) {
-      console.error('Failed to fetch bunjins:', err)
+      logger.error('Failed to fetch bunjins', { error: err.message })
       return []
     }
   }, [fetchApi])
@@ -27,7 +28,7 @@ export function useBunjins() {
       setBunjins(prev => [...prev, data.bunjin])
       return data.bunjin
     } catch (err) {
-      console.error('Failed to create bunjin:', err)
+      logger.error('Failed to create bunjin', { error: err.message })
       throw err
     }
   }, [fetchApi])
@@ -39,7 +40,7 @@ export function useBunjins() {
       })
       setBunjins(prev => prev.filter(b => b.id !== bunjinId))
     } catch (err) {
-      console.error('Failed to delete bunjin:', err)
+      logger.error('Failed to delete bunjin', { error: err.message })
       throw err
     }
   }, [fetchApi])

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useApi } from '../../hooks/use-api'
 import { LoadingSkeleton } from '../../components/loading-skeleton'
+import { logger } from '@/lib/logger.js'
 import './memories.css'
 
 export function MemoryListView() {
@@ -20,7 +21,7 @@ export function MemoryListView() {
       const data = await fetchApi('/api/memories')
       setMemories(data.memories || [])
     } catch (err) {
-      console.error('Failed to fetch memories:', err)
+      logger.error('Failed to fetch memories', { error: err.message })
     }
   }
 
