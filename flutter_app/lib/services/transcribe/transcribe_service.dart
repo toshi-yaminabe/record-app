@@ -50,24 +50,16 @@ class TranscribeService {
       throw TranscribeException('ファイルが存在しません: $filePath');
     }
 
-    if (_isSupabaseReady()) {
-      return _transcribeViaStorage(
-        file: file,
-        sessionId: sessionId,
-        segmentNo: segmentNo,
-        startAt: startAt,
-        endAt: endAt,
-      );
-    } else {
-      return _transcribeViaMultipart(
-        file: file,
-        deviceId: deviceId,
-        sessionId: sessionId,
-        segmentNo: segmentNo,
-        startAt: startAt,
-        endAt: endAt,
-      );
-    }
+    // TODO: Storage + Edge Function フロー完成後に分岐を復活
+    // 現在はEdge Function未完成 + セッションID不整合のため旧フロー固定
+    return _transcribeViaMultipart(
+      file: file,
+      deviceId: deviceId,
+      sessionId: sessionId,
+      segmentNo: segmentNo,
+      startAt: startAt,
+      endAt: endAt,
+    );
   }
 
   /// 新フロー: Storage直接アップロード + Edge Function
