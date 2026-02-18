@@ -5,6 +5,7 @@ import '../../../core/app_logger.dart';
 import '../../../core/constants.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/recording_provider.dart';
+import '../../widgets/transcribe_mode_selector.dart';
 
 /// 設定ページ
 class SettingsPage extends ConsumerStatefulWidget {
@@ -150,6 +151,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           title: const Text('API接続先'),
           subtitle: Text(apiUrl),
         ),
+        const Divider(),
+
+        // 文字起こし方式（FR-004/FR-005/FR-006）
+        const TranscribeModeSelector(),
         const Divider(),
 
         // オフラインキュー

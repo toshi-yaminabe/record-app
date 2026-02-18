@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 enum TranscribeMode {
   server,
   local;
@@ -41,6 +43,15 @@ extension TranscribeModeLabel on TranscribeMode {
         return '今まで通りサーバー経由で文字起こしします';
       case TranscribeMode.local:
         return '端末内で文字起こしします（開発中）';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case TranscribeMode.server:
+        return Icons.cloud_outlined;
+      case TranscribeMode.local:
+        return Icons.phone_android;
     }
   }
 }
