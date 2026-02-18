@@ -42,6 +42,10 @@ dependencies:
   # アプリバージョン情報
   package_info_plus: ^8.0.0
 
+  # ローカルSTT (Whisper)
+  whisper_ggml: ^1.7.0
+  ffmpeg_kit_flutter_audio: ^6.0.3
+
   # バックグラウンド録音
   flutter_background_service: ^5.0.10
   flutter_local_notifications: ^18.0.1

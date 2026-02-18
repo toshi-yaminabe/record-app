@@ -27,9 +27,12 @@ import 'services/recording/background_service_initializer.dart';
 import 'services/recording/notification_channel_setup.dart';
 import 'services/transcribe/engine_resolver.dart';
 import 'services/transcribe/local_transcribe_sync_service.dart';
+import 'services/transcribe/audio_converter.dart';
 import 'services/transcribe/server_engine.dart';
 import 'services/transcribe/transcribe_quality_evaluator.dart';
 import 'services/transcribe/transcribe_service.dart';
+import 'services/transcribe/whisper_engine.dart';
+import 'services/transcribe/whisper_model_manager.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -107,7 +110,18 @@ Future<void> main() async {
   // Engine抽象化 + ローカルデータ一時保持
   final transcribeService = TranscribeService(baseUrl: ApiConfig.baseUrl);
   final serverEngine = ServerEngine(transcribeService: transcribeService);
-  final engineResolver = EngineResolver(serverEngine: serverEngine);
+  // WhisperEngine (ローカルSTT)
+  final modelManager = WhisperModelManager();
+  const audioConverter = AudioConverter();
+  final whisperEngine = WhisperEngine(
+    modelManager: modelManager,
+    audioConverter: audioConverter,
+    serverEngine: serverEngine,
+  );
+  final engineResolver = EngineResolver(
+    serverEngine: serverEngine,
+    localEngine: whisperEngine,
+  );
   final transcribeRetryService = TranscribeRetryService(
     store: pendingTranscribeStore,
     serverEngine: serverEngine,
