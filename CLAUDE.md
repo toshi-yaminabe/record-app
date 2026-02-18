@@ -3,7 +3,7 @@
 音声録音 → 自動文字起こし → AI提案生成 を軸とした自己管理アプリ。
 「分人（Bunjin）」という人格ファセット概念で、状況に応じた自己の使い分けを支援する。
 
-**Tech Stack:** Next.js 15 (App Router) + Prisma 6 + Neon PostgreSQL + Flutter (Android) + Gemini API
+**Tech Stack:** Next.js 15 (App Router) + Prisma 6 + Supabase PostgreSQL + Flutter (Android) + Gemini API
 **Hosting:** Vercel (Serverless) / GitHub Releases (APK配布)
 
 ---
@@ -28,7 +28,7 @@ record-app/
 │   └── migrations/           ← Prismaマイグレーション
 │
 ├── lib/                      ← バックエンド共通ライブラリ
-│   ├── prisma.js             ← DB接続（Neon Serverless WebSocket + PrismaNeon adapter）
+│   ├── prisma.js             ← DB接続（Supabase PostgreSQL via PgBouncer）
 │   ├── gemini.js             ← Gemini API（STT + 提案生成, 環境変数 > DB保存キー の優先順位）
 │   ├── crypto.js             ← AES-256-GCM暗号化（APIキーのDB保存用）
 │   ├── constants.js          ← 全定数（MOCK_USER_ID, ステータス, デフォルト分人定義）
@@ -123,7 +123,7 @@ record-app/
 
 | 変数名 | 用途 | 必須 |
 |--------|------|------|
-| `DATABASE_URL` | Neon PostgreSQL接続文字列 | 必須 |
+| `DATABASE_URL` | Supabase PostgreSQL接続文字列 (Pooler) | 必須 |
 | `GEMINI_API_KEY` | Gemini API (STT + 提案生成) | 必須 (※DB保存でも代替可) |
 | `ENCRYPTION_KEY` | AES-256-GCM暗号化キー (32byte hex) | 任意 (未設定時DATABASE_URLハッシュ) |
 | `CRON_SECRET` | Cronジョブ認証トークン | 任意 |

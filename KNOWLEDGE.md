@@ -1,7 +1,7 @@
 # record-app ナレッジ資料
 
-**最終更新:** 2026-02-17
-**バージョン:** Web v2.0.0 (package.json) / Flutter v2.0.0+5 (pubspec.yaml)
+**最終更新:** 2026-02-18
+**バージョン:** Web v2.0.0-beta.6 (package.json) / Flutter v2.0.0-beta.6+8 (pubspec.yaml)
 
 ---
 
@@ -39,7 +39,6 @@ graph TB
     subgraph External["外部サービス"]
         Supabase["Supabase PostgreSQL<br/>(ap-northeast-1)"]
         Gemini["Google Gemini API<br/>(gemini-2.0-flash)"]
-        EdgeFunc["Supabase Edge Function<br/>(process-audio)"]
     end
 
     Flutter -->|REST API| API
@@ -48,8 +47,6 @@ graph TB
     Services --> Lib
     Lib -->|Prisma 6| Supabase
     Lib -->|@google/generative-ai| Gemini
-    Flutter -->|音声文字起こし| EdgeFunc
-    EdgeFunc -->|Supabase Storage| Supabase
 ```
 
 ### ディレクトリ構造
@@ -113,7 +110,7 @@ record-app/
 │       └── services/             # 録音・文字起こし・オフライン
 ├── next.config.mjs               # Next.js設定 (ESM, bodySizeLimit: 10mb)
 ├── vercel.json                   # Vercel関数設定 (transcribe/proposals: 60s)
-└── package.json                  # v2.0.0
+└── package.json                  # v2.0.0-beta.6
 ```
 
 ### 技術スタック
@@ -633,14 +630,14 @@ ARCHIVED  |  NG  |  NG   |  NG  |   -
 - `lib/crypto.js` で `encrypt()` / `decrypt()` に使用
 - ユーザー設定のGemini APIキーをDBに暗号化保存する際に必要
 
-**DATABASE_URL 形式 (Supabase Transaction mode):**
+**DATABASE_URL 形式 (Supabase Transaction mode / Supavisor):**
 ```
-postgresql://postgres.[ref]:[password]@aws-0-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&statement_cache_size=0
+postgresql://postgres.[ref]:[password]@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres?pgbouncer=true&connection_limit=1&statement_cache_size=0
 ```
 
 **DIRECT_URL 形式 (Supabase Session mode):**
 ```
-postgresql://postgres.[ref]:[password]@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres
+postgresql://postgres.[ref]:[password]@aws-1-ap-northeast-1.pooler.supabase.com:5432/postgres
 ```
 
 ### Flutter (モバイルアプリ)
@@ -676,7 +673,7 @@ sequenceDiagram
     participant BG as Background Service
     participant API as Next.js API
     participant Gemini as Gemini API
-    participant DB as Neon DB
+    participant DB as Supabase DB
 
     User->>Flutter: 録音開始
     Flutter->>BG: start (sessionId, recordingsDir)
@@ -706,7 +703,7 @@ sequenceDiagram
     participant Web as Web Dashboard
     participant API as Next.js API
     participant Gemini as Gemini API
-    participant DB as Neon DB
+    participant DB as Supabase DB
 
     User->>Web: Daily画面で提案生成
     Web->>API: POST /api/proposals { dateKey }
@@ -791,15 +788,10 @@ flowchart LR
 | 接続プール | Supabase Supavisor (組み込みプーラー) |
 | Postgres Version | 17.6.1.063 |
 
-### Supabase Edge Functions
+### ~~Supabase Edge Functions~~ (廃止)
 
-| 項目 | 詳細 |
-|------|------|
-| 用途 | 音声文字起こし処理 (process-audio) |
-| ランタイム | Deno + TypeScript |
-| 環境変数 | `GEMINI_API_KEY` (手動設定), `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` (自動提供) |
-| 処理フロー | 1. Storageから音声DL → 2. Gemini STT → 3. Segment更新 → 4. 音声削除 |
-| JWT認証 | 有効 (`verify_jwt: true`) |
+> v2.0.0-beta.6 で Storage+Edge Function フローを廃止。
+> 文字起こしは Flutter → `POST /api/transcribe` (multipart) → Gemini API の単一フローに統一。
 
 ### Google Gemini API
 
@@ -829,7 +821,15 @@ flowchart LR
 
 ### 現在のオープンIssue
 
-なし（2026-02-17時点で全Issue解決済み）
+なし（2026-02-18時点で全Issue解決済み）
+
+### 解決済み（v2.0.0-beta.6 パイプライン復旧）
+
+- Vercel `DATABASE_URL` が旧Neon DB指向 → Supabase Pooler (aws-1) に修正
+- Vercel `SUPABASE_URL` / `SERVICE_ROLE_KEY` 未設定/破損 → 正しい値を設定
+- Storage+Edge Function フロー死コード → Flutter/バックエンド両方から完全削除
+- STTフローを ServerEngine (multipart POST) 単一フローに統一
+- `/api/transcribe` のDeprecation警告ヘッダー削除
 
 ### 解決済み（2026-02-17 Phase 2バッチ修正）
 
@@ -908,7 +908,9 @@ flutter run --dart-define-from-file=env/prod.json
 
 ```bash
 # Vercel環境変数を設定:
-# - DATABASE_URL (Neon接続文字列)
+# - DATABASE_URL (Supabase Pooler接続文字列, aws-1-ap-northeast-1)
+# - SUPABASE_URL (https://[ref].supabase.co)
+# - SUPABASE_SERVICE_ROLE_KEY
 # - GEMINI_API_KEY
 # - CRON_SECRET (タスク自動アーカイブ用)
 
@@ -991,7 +993,7 @@ seed実行時に5件作成。カスタム分人は最大3件追加可能 (計8�
 | STTパイプライン | E1 | Gemini API (transcribeAudio) | 音声→テキスト変換 |
 | ルールツリー | E2 | RuleTreeService + RuleTreeNode | 自動分人割当の条件分岐 |
 | PublishedVersion | E2 | JSONスナップショット | セッション中のルール不変を保証 |
-| 音声短期保持→即削除 | E1 | (要実装: AudioDeletionLog) | プライバシー要件 |
+| 音声短期保持→即削除 | E1 | AudioDeletionLog (実装済み #31) | プライバシー要件 |
 | メモリー蓄積 | E5 | Memory (append-only) | 執事の学習基盤 |
 
 ### 9.3 技術的負債マトリクス

@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'package:ffmpeg_kit_flutter_audio/ffmpeg_kit.dart';
-import 'package:ffmpeg_kit_flutter_audio/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new_min/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_min/return_code.dart';
 import '../../core/app_logger.dart';
 
 /// 音声フォーマット変換サービス

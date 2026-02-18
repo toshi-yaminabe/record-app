@@ -44,7 +44,7 @@ dependencies:
 
   # ローカルSTT (Whisper)
   whisper_ggml: ^1.7.0
-  ffmpeg_kit_flutter_audio: ^6.0.3
+  ffmpeg_kit_flutter_new_min: ^2.1.0
 
   # バックグラウンド録音
   flutter_background_service: ^5.0.10

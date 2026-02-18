@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.toshiyaminabe.recordapp"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "29.0.13113456"
 
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
