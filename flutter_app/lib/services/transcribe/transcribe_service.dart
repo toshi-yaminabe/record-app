@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/app_logger.dart';
+import '../../core/transcribe_mode.dart';
 
 /// 文字起こしサービス
 ///
@@ -29,6 +30,7 @@ class TranscribeService {
     required int segmentNo,
     required DateTime startAt,
     required DateTime endAt,
+    TranscribeMode mode = TranscribeMode.server,
   }) async {
     if (baseUrl.isEmpty) {
       throw TranscribeException(
@@ -40,6 +42,12 @@ class TranscribeService {
     final file = File(filePath);
     if (!await file.exists()) {
       throw TranscribeException('ファイルが存在しません: $filePath');
+    }
+
+    if (mode == TranscribeMode.local) {
+      AppLogger.api(
+        'transcribe: local mode requested, fallback to server flow (preparation phase)',
+      );
     }
 
     // TODO: Storage + Edge Function フロー完成後に分岐を復活

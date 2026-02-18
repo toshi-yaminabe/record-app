@@ -287,6 +287,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
         segmentNo: segmentNo,
         startAt: startTime.toUtc(),
         endAt: endTime.toUtc(),
+        mode: mode,
       );
       final audioDuration = endTime.difference(startTime);
 
