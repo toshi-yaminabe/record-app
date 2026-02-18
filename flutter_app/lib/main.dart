@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -33,10 +34,40 @@ import 'services/transcribe/transcribe_quality_evaluator.dart';
 import 'services/transcribe/transcribe_service.dart';
 import 'services/transcribe/whisper_engine.dart';
 import 'services/transcribe/whisper_model_manager.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ログ基盤初期化
+  // グローバルエラーハンドラ
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    // AppLoggerが初期化済みならログ出力
+    try {
+      AppLogger.lifecycle('FlutterError: ${details.exceptionAsString()}');
+    } catch (_) {}
+  };
+
+  runZonedGuarded(
+    () async {
+      try {
+        await _initializeAndRunApp();
+      } catch (e, st) {
+        try {
+          AppLogger.lifecycle('FATAL: initialization failed: $e\n$st');
+        } catch (_) {}
+        runApp(InitializationErrorApp(error: e.toString()));
+      }
+    },
+    (error, stackTrace) {
+      try {
+        AppLogger.lifecycle('Uncaught zone error: $error\n$stackTrace');
+      } catch (_) {}
+    },
+  );
+}
+
+Future<void> _initializeAndRunApp() async {
+  // === Block 1: コア初期化 ===
   final packageInfo = await PackageInfo.fromPlatform();
   await AppLogger.init(packageInfo: packageInfo);
   AppLogger.lifecycle(
@@ -75,7 +106,6 @@ Future<void> main() async {
   AppLogger.lifecycle('app starting: deviceId=$deviceId');
 
   // recordings dirパスをSharedPreferencesにキャッシュ
-  // （バックグラウンドisolateではpath_providerが使えないため）
   final docDir = await getApplicationDocumentsDirectory();
   final recordingsDir = p.join(docDir.path, 'recordings');
   final prefs = await SharedPreferences.getInstance();
@@ -84,44 +114,47 @@ Future<void> main() async {
   AppLogger.lifecycle(
       'baseUrl=${ApiConfig.baseUrl.isEmpty ? "(empty)" : ApiConfig.baseUrl}');
 
-  // 通知チャネル初期化
-  await NotificationChannelSetup.initialize();
+  // === Block 2: サービス初期化（一部失敗は続行） ===
+  try {
+    await NotificationChannelSetup.initialize();
+  } catch (e, st) {
+    AppLogger.lifecycle('WARNING: notification init failed: $e\n$st');
+  }
 
-  // バックグラウンドサービス初期化
-  await BackgroundServiceInitializer.initialize();
+  try {
+    await BackgroundServiceInitializer.initialize();
+  } catch (e, st) {
+    AppLogger.lifecycle('WARNING: background service init failed: $e\n$st');
+  }
 
-  // DB暗号化キー取得 + マイグレーション（サービス初期化前に実行）
+  // DB暗号化キー取得 + マイグレーション
   final dbKey = await SecureDbKeyManager.getOrCreateKey();
-
-  // Step 1: 旧2DB → 統合DB マイグレーション（平文のまま）
   await MigrationHelper.migrateIfNeeded();
-
-  // Step 2: 平文統合DB → 暗号化統合DB マイグレーション
   await MigrationHelper.migrateToEncrypted(dbKey);
-
-  // Step 3: 暗号化パスワードを設定してDB接続
   UnifiedQueueDatabase.setPassword(dbKey);
 
-  // H3: Provider経由でサービスをまとめて初期化
+  // === Block 3: DI構成 ===
   final authenticatedClient = AuthenticatedClient(baseUrl: ApiConfig.baseUrl);
   final offlineQueueService = OfflineQueueService();
   final pendingTranscribeStore = PendingTranscribeStore();
 
-  // Engine抽象化 + ローカルデータ一時保持
   final transcribeService = TranscribeService(baseUrl: ApiConfig.baseUrl);
   final serverEngine = ServerEngine(transcribeService: transcribeService);
-  // WhisperEngine (ローカルSTT)
-  final modelManager = WhisperModelManager();
-  const audioConverter = AudioConverter();
-  final whisperEngine = WhisperEngine(
-    modelManager: modelManager,
-    audioConverter: audioConverter,
-    serverEngine: serverEngine,
-  );
+
+  // ローカルSTTエンジンはファクトリで遅延生成（モード選択まで初期化しない）
   final engineResolver = EngineResolver(
     serverEngine: serverEngine,
-    localEngine: whisperEngine,
+    localEngineFactory: () {
+      final modelManager = WhisperModelManager();
+      const audioConverter = AudioConverter();
+      return WhisperEngine(
+        modelManager: modelManager,
+        audioConverter: audioConverter,
+        serverEngine: serverEngine,
+      );
+    },
   );
+
   final transcribeRetryService = TranscribeRetryService(
     store: pendingTranscribeStore,
     serverEngine: serverEngine,
@@ -221,6 +254,50 @@ class ConfigErrorApp extends StatelessWidget {
                   'API_BASE_URL が設定されていません。\n'
                   '--dart-define-from-file=env/prod.json を指定してビルドしてください。',
                   textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 初期化エラー時のフォールバック画面
+class InitializationErrorApp extends StatelessWidget {
+  final String error;
+
+  const InitializationErrorApp({super.key, required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                const Text(
+                  '起動エラー',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'アプリの初期化中にエラーが発生しました。\n$error',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'アプリを再起動してください。\n問題が解決しない場合は開発者にお問い合わせください。',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
