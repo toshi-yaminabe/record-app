@@ -127,11 +127,35 @@ Future<void> _initializeAndRunApp() async {
     AppLogger.lifecycle('WARNING: background service init failed: $e\n$st');
   }
 
-  // DB暗号化キー取得 + マイグレーション
-  final dbKey = await SecureDbKeyManager.getOrCreateKey();
-  await MigrationHelper.migrateIfNeeded();
-  await MigrationHelper.migrateToEncrypted(dbKey);
-  UnifiedQueueDatabase.setPassword(dbKey);
+  // DB暗号化キー取得 + マイグレーション（各ステップ個別保護）
+  String? dbKey;
+  try {
+    dbKey = await SecureDbKeyManager.getOrCreateKey();
+  } catch (e, st) {
+    AppLogger.lifecycle('WARNING: DB key retrieval failed: $e\n$st');
+  }
+
+  if (dbKey != null) {
+    try {
+      await MigrationHelper.migrateIfNeeded();
+    } catch (e, st) {
+      AppLogger.lifecycle('WARNING: DB migration failed: $e\n$st');
+    }
+
+    try {
+      await MigrationHelper.migrateToEncrypted(dbKey);
+    } catch (e, st) {
+      AppLogger.lifecycle('WARNING: DB encryption migration failed: $e\n$st');
+    }
+
+    try {
+      UnifiedQueueDatabase.setPassword(dbKey);
+    } catch (e, st) {
+      AppLogger.lifecycle('WARNING: DB password set failed: $e\n$st');
+    }
+  } else {
+    AppLogger.lifecycle('WARNING: DB key is null, skipping DB initialization');
+  }
 
   // === Block 3: DI構成 ===
   final authenticatedClient = AuthenticatedClient(baseUrl: ApiConfig.baseUrl);
