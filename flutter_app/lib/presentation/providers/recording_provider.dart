@@ -12,6 +12,7 @@ import '../../services/offline/pending_transcribe_store.dart';
 import '../../services/recording/recording_service.dart';
 import '../../services/transcribe/engine_resolver.dart';
 import '../../services/transcribe/transcribe_engine.dart';
+import '../../services/transcribe/transcribe_quality_evaluator.dart';
 import '../../services/transcribe/transcribe_request_context.dart';
 import '../../core/transcribe_mode.dart';
 import 'transcribe_mode_provider.dart';
@@ -58,6 +59,14 @@ final engineResolverProvider = Provider<EngineResolver>((ref) {
 final localTranscribeStoreProvider = Provider<LocalTranscribeStore>((ref) {
   throw UnimplementedError(
     'localTranscribeStoreProvider must be overridden in ProviderScope',
+  );
+});
+
+/// 品質評価プロバイダー
+/// main.dartのProviderScope.overridesでインスタンスを注入する。
+final qualityEvaluatorProvider = Provider<TranscribeQualityEvaluator>((ref) {
+  throw UnimplementedError(
+    'qualityEvaluatorProvider must be overridden in ProviderScope',
   );
 });
 
@@ -118,8 +127,12 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
   final PendingTranscribeStore _pendingStore;
   final EngineResolver _engineResolver;
   final LocalTranscribeStore _localTranscribeStore;
+  final TranscribeQualityEvaluator _qualityEvaluator;
   final String _deviceId;
   final Ref _ref;
+
+  /// 品質評価NG時の最大再試行回数
+  static const int _maxQualityRetries = 2;
 
   StreamSubscription? _eventSubscription;
   Timer? _elapsedTimer;
@@ -130,6 +143,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     this._pendingStore,
     this._engineResolver,
     this._localTranscribeStore,
+    this._qualityEvaluator,
     this._deviceId,
     this._ref,
   ) : super(const RecordingState()) {
@@ -193,7 +207,6 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     );
 
     try {
-      // Engine経由で文字起こし
       final engine = _engineResolver.resolve(mode);
       final context = TranscribeRequestContext(
         filePath: filePath,
@@ -203,31 +216,79 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
         startAt: startTime.toUtc(),
         endAt: endTime.toUtc(),
       );
-      final result = await engine.transcribe(context);
+      final audioDuration = endTime.difference(startTime);
 
-      // 音声ファイル削除
-      final file = File(filePath);
-      if (await file.exists()) {
-        await file.delete();
+      // 品質評価ループ: 最大 _maxQualityRetries+1 回試行
+      TranscribeEngineResult? acceptedResult;
+      for (var attempt = 1; attempt <= _maxQualityRetries + 1; attempt++) {
+        final result = await engine.transcribe(context);
+
+        final evaluation = await _qualityEvaluator.evaluate(
+          QualityEvaluationContext(
+            text: result.text,
+            audioDuration: audioDuration,
+            attemptNumber: attempt,
+          ),
+        );
+
+        AppLogger.recording(
+          'quality evaluation: attempt=$attempt '
+          'pass=${evaluation.pass} score=${evaluation.score} '
+          'reason=${evaluation.reason}',
+        );
+
+        if (evaluation.pass) {
+          acceptedResult = result;
+          break;
+        }
+
+        if (attempt <= _maxQualityRetries) {
+          AppLogger.recording(
+            'quality evaluation failed, retrying ($attempt/$_maxQualityRetries)',
+          );
+        }
       }
 
-      // ローカルSQLiteに一次保存（サーバー同期は非同期で行われる）
-      await _localTranscribeStore.add(
-        sessionId: sessionId,
-        segmentNo: segmentNo,
-        startAt: startTime.toUtc(),
-        endAt: endTime.toUtc(),
-        text: result.text,
-        selectedMode: result.selectedMode.toApiValue(),
-        executedMode: result.executedMode.toApiValue(),
-        fallbackReason: result.fallbackReason,
-        localEngineVersion: result.localEngineVersion,
-      );
+      if (acceptedResult != null) {
+        // 品質OK: 音声ファイル削除 → ローカルSQLite保存
+        final file = File(filePath);
+        if (await file.exists()) {
+          await file.delete();
+        }
 
-      state = state.copyWith(
-        transcribedCount: state.transcribedCount + 1,
-        lastTranscript: result.text,
-      );
+        await _localTranscribeStore.add(
+          sessionId: sessionId,
+          segmentNo: segmentNo,
+          startAt: startTime.toUtc(),
+          endAt: endTime.toUtc(),
+          text: acceptedResult.text,
+          selectedMode: acceptedResult.selectedMode.toApiValue(),
+          executedMode: acceptedResult.executedMode.toApiValue(),
+          fallbackReason: acceptedResult.fallbackReason,
+          localEngineVersion: acceptedResult.localEngineVersion,
+        );
+
+        state = state.copyWith(
+          transcribedCount: state.transcribedCount + 1,
+          lastTranscript: acceptedResult.text,
+        );
+      } else {
+        // 全試行で品質NG: 音声保持 → PendingTranscribeStore
+        AppLogger.recording(
+          'all quality evaluations failed, preserving audio file',
+        );
+        await _pendingStore.add(
+          filePath: filePath,
+          deviceId: _deviceId,
+          sessionId: sessionId,
+          segmentNo: segmentNo,
+          startAt: startTime.toUtc(),
+          endAt: endTime.toUtc(),
+        );
+        state = state.copyWith(
+          error: '品質評価失敗（音声保持、リトライキューに追加）',
+        );
+      }
     } catch (e) {
       AppLogger.recording('transcribe failed, enqueueing retry', error: e);
       await _pendingStore.add(
@@ -296,6 +357,7 @@ final recordingNotifierProvider =
   final pendingStore = ref.watch(pendingTranscribeStoreProvider);
   final engineResolver = ref.watch(engineResolverProvider);
   final localTranscribeStore = ref.watch(localTranscribeStoreProvider);
+  final qualityEvaluator = ref.watch(qualityEvaluatorProvider);
   final deviceId = ref.watch(deviceIdProvider);
 
   return RecordingNotifier(
@@ -303,6 +365,7 @@ final recordingNotifierProvider =
     pendingStore,
     engineResolver,
     localTranscribeStore,
+    qualityEvaluator,
     deviceId,
     ref,
   );

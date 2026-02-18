@@ -5,6 +5,7 @@ import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../transcribe/server_engine.dart';
 import '../transcribe/transcribe_request_context.dart';
+import '../transcribe/transcribe_service.dart';
 import 'pending_transcribe_store.dart';
 
 /// 文字起こしリトライサービス
@@ -119,6 +120,14 @@ class TranscribeRetryService {
 
     // ServerEngineException でstatusCodeを持つ場合
     if (error is ServerEngineException && error.statusCode != null) {
+      final statusCode = error.statusCode!;
+      if (statusCode >= 400 && statusCode < 500) {
+        return true;
+      }
+    }
+
+    // TranscribeException でstatusCodeを持つ場合（ServerEngine委任後）
+    if (error is TranscribeException && error.statusCode != null) {
       final statusCode = error.statusCode!;
       if (statusCode >= 400 && statusCode < 500) {
         return true;
