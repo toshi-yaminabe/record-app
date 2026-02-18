@@ -54,6 +54,7 @@ void main() {
         segmentNo: 0,
         startAt: DateTime.utc(2026, 2, 17, 10, 0),
         endAt: DateTime.utc(2026, 2, 17, 10, 5),
+        mode: TranscribeMode.server,
       );
 
       expect(context.filePath, '/path/to/audio.m4a');

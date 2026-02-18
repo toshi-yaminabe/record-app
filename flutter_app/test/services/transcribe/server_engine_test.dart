@@ -19,6 +19,7 @@ void main() {
     segmentNo: 1,
     startAt: DateTime.utc(2026, 2, 18, 10, 0),
     endAt: DateTime.utc(2026, 2, 18, 10, 10),
+    mode: TranscribeMode.server,
   );
 
   setUp(() {

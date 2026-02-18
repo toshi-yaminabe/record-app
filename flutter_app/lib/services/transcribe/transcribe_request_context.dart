@@ -1,3 +1,5 @@
+import '../../core/transcribe_mode.dart';
+
 /// 文字起こしリクエストの不変データ転送オブジェクト
 class TranscribeRequestContext {
   final String filePath;
@@ -6,6 +8,7 @@ class TranscribeRequestContext {
   final int segmentNo;
   final DateTime startAt;
   final DateTime endAt;
+  final TranscribeMode mode;
 
   const TranscribeRequestContext({
     required this.filePath,
@@ -14,5 +17,6 @@ class TranscribeRequestContext {
     required this.segmentNo,
     required this.startAt,
     required this.endAt,
+    required this.mode,
   });
 }

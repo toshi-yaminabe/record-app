@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import '../../core/app_logger.dart';
 import '../../core/constants.dart';
+import '../../core/transcribe_mode.dart';
 import '../transcribe/server_engine.dart';
 import '../transcribe/transcribe_request_context.dart';
 import '../transcribe/transcribe_service.dart';
@@ -63,6 +64,7 @@ class TranscribeRetryService {
             segmentNo: entry.segmentNo,
             startAt: entry.startAt,
             endAt: entry.endAt,
+            mode: TranscribeMode.server,
           );
           await _serverEngine.transcribe(context);
 
