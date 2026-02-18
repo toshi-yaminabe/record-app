@@ -13,11 +13,11 @@ export function HistoryView() {
 
   async function fetchTranscripts() {
     try {
-      const res = await fetch('/api/transcribe')
+      const res = await fetch('/api/segments')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      if (data.transcripts) {
-        setTranscripts(data.transcripts.slice(0, 10))
+      if (data.segments) {
+        setTranscripts(data.segments.slice(0, 10))
       }
     } catch (err) {
       logger.error('Failed to fetch history', { error: err.message })

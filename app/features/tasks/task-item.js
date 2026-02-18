@@ -5,20 +5,27 @@ import { BunjinChip } from '../../components/bunjin-chip'
 
 export function TaskItem({ task, onStatusChange }) {
   const handleCheckboxChange = () => {
-    let nextStatus = 'TODO'
-    if (task.status === 'TODO') nextStatus = 'DOING'
-    else if (task.status === 'DOING') nextStatus = 'DONE'
-    else if (task.status === 'DONE') nextStatus = 'ARCHIVED'
+    if (task.status === 'DONE') {
+      onStatusChange(task.id, 'TODO')
+      return
+    }
+    const progressMap = { TODO: 'DOING', DOING: 'DONE' }
+    const nextStatus = progressMap[task.status]
+    if (nextStatus) onStatusChange(task.id, nextStatus)
+  }
 
-    onStatusChange(task.id, nextStatus)
+  const handleArchive = () => {
+    if (!window.confirm('このタスクをアーカイブしますか？')) return
+    onStatusChange(task.id, 'ARCHIVED')
   }
 
   return (
     <div className="task-item">
       <input
         type="checkbox"
-        checked={task.status === 'DONE' || task.status === 'ARCHIVED'}
+        checked={task.status === 'DONE'}
         onChange={handleCheckboxChange}
+        disabled={task.status === 'ARCHIVED'}
         className="task-checkbox"
       />
       <div className="task-content">
@@ -28,6 +35,11 @@ export function TaskItem({ task, onStatusChange }) {
           <StatusBadge status={task.status} />
           {task.dueDate && (
             <span className="task-due">期限: {new Date(task.dueDate).toLocaleDateString('ja-JP')}</span>
+          )}
+          {task.status === 'DONE' && (
+            <button className="btn-archive-link" onClick={handleArchive}>
+              アーカイブ
+            </button>
           )}
         </div>
       </div>

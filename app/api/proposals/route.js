@@ -5,7 +5,6 @@
 
 import { withApi } from '@/lib/middleware.js'
 import { listProposals, generateDailyProposals } from '@/lib/services/proposal-service.js'
-import { ValidationError } from '@/lib/errors.js'
 import { validateBody, proposalCreateSchema } from '@/lib/validators.js'
 
 export const GET = withApi(async (request, { userId }) => {
@@ -24,10 +23,6 @@ export const POST = withApi(async (request, { userId }) => {
   const body = await request.json()
   const validated = validateBody(proposalCreateSchema, body)
   const { dateKey } = validated
-
-  if (!dateKey) {
-    throw new ValidationError('dateKey is required')
-  }
 
   const proposals = await generateDailyProposals(userId, dateKey)
   return { proposals }

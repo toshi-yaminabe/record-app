@@ -1,34 +1,37 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useProposals } from '../../hooks/use-proposals'
+import { useApi } from '../../hooks/use-api'
 import { LoadingSkeleton } from '../../components/loading-skeleton'
 import './weekly.css'
 
+function getCurrentWeekKey() {
+  const today = new Date()
+  const year = today.getFullYear()
+  const startOfYear = new Date(year, 0, 1)
+  const dayOfYear = Math.floor((today - startOfYear) / (24 * 60 * 60 * 1000))
+  const weekNum = Math.ceil((dayOfYear + startOfYear.getDay() + 1) / 7)
+  return `${year}-W${String(weekNum).padStart(2, '0')}`
+}
+
 export function WeeklyReviewView() {
-  const { proposals, fetchProposals, loading } = useProposals()
-  const [weekStart, setWeekStart] = useState('')
+  const { fetchApi, loading } = useApi()
+  const [weekKey] = useState(() => getCurrentWeekKey())
+  const [reviewData, setReviewData] = useState(null)
 
   useEffect(() => {
-    const today = new Date()
-    const monday = new Date(today)
-    monday.setDate(today.getDate() - today.getDay() + 1)
-    const weekStartStr = monday.toISOString().split('T')[0]
-    setWeekStart(weekStartStr)
-    fetchProposals(weekStartStr)
-  }, [])
+    fetchApi(`/api/weekly-review?weekKey=${weekKey}`)
+      .then(data => setReviewData(data))
+      .catch(() => setReviewData(null))
+  }, [weekKey])
 
-  const confirmedProposals = proposals.filter(p => p.status === 'CONFIRMED')
+  const confirmedProposals = reviewData?.proposals?.filter(p => p.status === 'CONFIRMED') ?? []
 
   return (
     <section className="weekly-review-view">
       <div className="weekly-header">
         <h2>今週の振り返り</h2>
-        {weekStart && (
-          <span className="week-label">
-            週開始: {new Date(weekStart).toLocaleDateString('ja-JP')}
-          </span>
-        )}
+        <span className="week-label">週: {weekKey}</span>
       </div>
 
       {loading && <LoadingSkeleton rows={4} />}

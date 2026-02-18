@@ -18,7 +18,7 @@ export const PATCH = withApi(async (request, { userId, params }) => {
     return result
   } else if (status === 'REJECTED') {
     const proposal = await rejectProposal(userId, id)
-    return { proposal }
+    return { proposal, task: null }
   } else {
     throw new ValidationError('status must be CONFIRMED or REJECTED')
   }

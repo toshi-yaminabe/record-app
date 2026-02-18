@@ -5,16 +5,11 @@
 
 import { withApi } from '@/lib/middleware.js'
 import { createSession, listSessions } from '@/lib/services/session-service.js'
-import { ValidationError } from '@/lib/errors.js'
 import { validateBody, sessionCreateSchema } from '@/lib/validators.js'
 
 export const POST = withApi(async (request, { userId }) => {
   const body = await request.json()
   const validated = validateBody(sessionCreateSchema, body)
-
-  if (!validated.deviceId || typeof validated.deviceId !== 'string') {
-    throw new ValidationError('deviceId is required')
-  }
 
   const session = await createSession(userId, { deviceId: validated.deviceId })
   return { session }

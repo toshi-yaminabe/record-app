@@ -1,7 +1,7 @@
 /// アプリ定数
 class AppConstants {
   // 録音設定
-  static const int segmentDurationMinutes = 5;
+  static const int segmentDurationMinutes = 10;
   static const int sampleRate = 16000;
   static const int bitRate = 64000;
 

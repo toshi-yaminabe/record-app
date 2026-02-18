@@ -34,7 +34,7 @@ class AuthState {
 
 /// 認証Notifier
 class AuthNotifier extends StateNotifier<AuthState> {
-  StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<dynamic>? _authSubscription;
 
   AuthNotifier() : super(const AuthState(isLoading: true)) {
     _initialize();
@@ -61,7 +61,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
 
     // 認証状態の変化を監視
-    supabase.auth.onAuthStateChange.listen((data) {
+    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
       final event = data.event;
       final session = data.session;
 

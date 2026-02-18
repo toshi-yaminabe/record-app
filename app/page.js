@@ -8,6 +8,8 @@ import { SettingsView } from './features/settings/settings-view'
 import { TaskListView } from './features/tasks/task-list-view'
 import { DailyCheckinView } from './features/daily/daily-checkin-view'
 import { BunjinManagerView } from './features/bunjins/bunjin-manager-view'
+import { WeeklyReviewView } from './features/weekly/weekly-review-view'
+import { MemoryListView } from './features/memories/memory-list-view'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('daily')
@@ -16,7 +18,9 @@ export default function Dashboard() {
     { id: 'daily', label: 'Daily', icon: '☀️' },
     { id: 'tasks', label: 'タスク', icon: '📝' },
     { id: 'bunjins', label: '分人', icon: '👥' },
-    { id: 'history', label: '履歴', icon: '📝' },
+    { id: 'weekly', label: '週次', icon: '📅' },
+    { id: 'memories', label: 'メモリー', icon: '📖' },
+    { id: 'history', label: '履歴', icon: '🕐' },
     { id: 'settings', label: '設定', icon: '⚙️' },
   ]
 
@@ -63,6 +67,8 @@ export default function Dashboard() {
       {activeTab === 'daily' && <DailyCheckinView />}
       {activeTab === 'tasks' && <TaskListView />}
       {activeTab === 'bunjins' && <BunjinManagerView />}
+      {activeTab === 'weekly' && <WeeklyReviewView />}
+      {activeTab === 'memories' && <MemoryListView />}
       {activeTab === 'history' && <HistoryView />}
       {activeTab === 'settings' && <SettingsView />}
 

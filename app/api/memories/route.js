@@ -25,10 +25,6 @@ export const POST = withApi(async (request, { userId }) => {
   const validated = validateBody(memoryCreateSchema, body)
   const { text, bunjinId, sourceRefs } = validated
 
-  if (!text || typeof text !== 'string' || text.trim().length === 0) {
-    throw new ValidationError('text is required and must be a non-empty string')
-  }
-
   const memory = await createMemory(userId, {
     text: text.trim(),
     bunjinId: bunjinId || undefined,

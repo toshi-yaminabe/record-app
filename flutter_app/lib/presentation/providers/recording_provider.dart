@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/app_logger.dart';
 import '../../core/constants.dart';
@@ -16,6 +17,12 @@ import '../../services/transcribe/transcribe_quality_evaluator.dart';
 import '../../services/transcribe/transcribe_request_context.dart';
 import '../../core/transcribe_mode.dart';
 import 'transcribe_mode_provider.dart';
+import 'session_provider.dart' show sessionNotifierProvider;
+
+// SharedPreferencesキー定数
+const _kIsRecording = 'is_recording';
+const _kSessionId = 'recording_session_id';
+const _kRecordingStartedAt = 'recording_started_at';
 
 /// 録音サービスプロバイダー
 final recordingServiceProvider = Provider<RecordingService>((ref) {
@@ -148,14 +155,77 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     this._ref,
   ) : super(const RecordingState()) {
     _eventSubscription = _recordingService.events.listen(_onEvent);
+    _restoreRecordingState();
+  }
+
+  /// SharedPreferencesから録音状態を復元
+  Future<void> _restoreRecordingState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final wasRecording = prefs.getBool(_kIsRecording) ?? false;
+      if (!wasRecording) return;
+
+      final sessionId = prefs.getString(_kSessionId);
+      final startedAtStr = prefs.getString(_kRecordingStartedAt);
+      final startedAt = startedAtStr != null
+          ? DateTime.tryParse(startedAtStr)
+          : null;
+
+      AppLogger.recording(
+        'Restoring recording state: sessionId=$sessionId startedAt=$startedAt',
+      );
+
+      if (sessionId != null && startedAt != null) {
+        _startTime = startedAt;
+        _startElapsedTimer();
+        state = state.copyWith(
+          isRecording: true,
+          sessionId: sessionId,
+        );
+      } else {
+        // 不完全なデータはクリア
+        await _clearRecordingPrefs();
+      }
+    } catch (e) {
+      AppLogger.recording('Failed to restore recording state', error: e);
+    }
+  }
+
+  /// 録音開始時にSharedPreferencesへ保存
+  Future<void> _saveRecordingPrefs({
+    required String sessionId,
+    required DateTime startedAt,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_kIsRecording, true);
+      await prefs.setString(_kSessionId, sessionId);
+      await prefs.setString(_kRecordingStartedAt, startedAt.toIso8601String());
+    } catch (e) {
+      AppLogger.recording('Failed to save recording prefs', error: e);
+    }
+  }
+
+  /// 録音停止時にSharedPreferencesをクリア
+  Future<void> _clearRecordingPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_kIsRecording);
+      await prefs.remove(_kSessionId);
+      await prefs.remove(_kRecordingStartedAt);
+    } catch (e) {
+      AppLogger.recording('Failed to clear recording prefs', error: e);
+    }
   }
 
   void _onEvent(RecordingEvent event) {
     switch (event) {
       case RecordingStarted(:final sessionId):
         AppLogger.recording('RecordingStarted sessionId=$sessionId');
-        _startTime = DateTime.now();
+        final now = DateTime.now();
+        _startTime = now;
         _startElapsedTimer();
+        _saveRecordingPrefs(sessionId: sessionId, startedAt: now);
         state = state.copyWith(
           isRecording: true,
           sessionId: sessionId,
@@ -165,6 +235,8 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
       case RecordingStopped():
         AppLogger.recording('RecordingStopped');
         _stopElapsedTimer();
+        _clearRecordingPrefs();
+        _ref.read(sessionNotifierProvider.notifier).completeSession();
         state = state.copyWith(
           isRecording: false,
           elapsed: Duration.zero,

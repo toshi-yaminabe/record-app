@@ -9,8 +9,8 @@ import './memories.css'
 export function MemoryListView() {
   const { fetchApi, loading } = useApi()
   const [memories, setMemories] = useState([])
-  const [editingId, setEditingId] = useState(null)
-  const [editText, setEditText] = useState('')
+  const [newContent, setNewContent] = useState('')
+  const [adding, setAdding] = useState(false)
 
   useEffect(() => {
     fetchMemories()
@@ -25,33 +25,44 @@ export function MemoryListView() {
     }
   }
 
-  const handleEdit = (memory) => {
-    setEditingId(memory.id)
-    setEditText(memory.content)
-  }
-
-  const handleSave = async (memoryId) => {
+  const handleAdd = async () => {
+    if (!newContent.trim()) return
     try {
-      await fetchApi(`/api/memories/${memoryId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ content: editText }),
+      setAdding(true)
+      const data = await fetchApi('/api/memories', {
+        method: 'POST',
+        body: JSON.stringify({ content: newContent.trim() }),
       })
-      setMemories(prev => prev.map(m => m.id === memoryId ? { ...m, content: editText } : m))
-      setEditingId(null)
+      setMemories(prev => [data.memory, ...prev])
+      setNewContent('')
     } catch (err) {
-      alert('保存に失敗しました: ' + err.message)
+      alert('追加に失敗しました: ' + err.message)
+    } finally {
+      setAdding(false)
     }
-  }
-
-  const handleCancel = () => {
-    setEditingId(null)
-    setEditText('')
   }
 
   return (
     <section className="memory-list-view">
       <div className="memory-header">
         <h2>思い出ノート</h2>
+      </div>
+
+      <div className="memory-add">
+        <textarea
+          className="memory-textarea"
+          value={newContent}
+          onChange={e => setNewContent(e.target.value)}
+          placeholder="新しいメモリーを入力..."
+          rows={3}
+        />
+        <button
+          className="btn-add-memory"
+          onClick={handleAdd}
+          disabled={adding || !newContent.trim()}
+        >
+          {adding ? '追加中...' : '新規メモリー追加'}
+        </button>
       </div>
 
       {loading && <LoadingSkeleton rows={4} />}
@@ -73,31 +84,9 @@ export function MemoryListView() {
                   {new Date(memory.createdAt).toLocaleDateString('ja-JP')}
                 </span>
               </div>
-              {editingId === memory.id ? (
-                <div className="memory-edit">
-                  <textarea
-                    className="memory-textarea"
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    rows={4}
-                  />
-                  <div className="memory-edit-actions">
-                    <button className="btn-save" onClick={() => handleSave(memory.id)}>
-                      保存
-                    </button>
-                    <button className="btn-cancel" onClick={handleCancel}>
-                      キャンセル
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="memory-content">
-                  <p className="memory-text">{memory.content}</p>
-                  <button className="btn-edit" onClick={() => handleEdit(memory)}>
-                    編集
-                  </button>
-                </div>
-              )}
+              <div className="memory-content">
+                <p className="memory-text">{memory.content}</p>
+              </div>
             </div>
           ))}
         </div>

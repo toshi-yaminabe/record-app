@@ -11,23 +11,34 @@ class RecordingPanel extends ConsumerStatefulWidget {
 }
 
 class _RecordingPanelState extends ConsumerState<RecordingPanel>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseAnimation;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _pulseController.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // C3: フォアグラウンド復帰時にバックグラウンドサービスと状態同期
       _syncState();
     }
   }
@@ -35,11 +46,20 @@ class _RecordingPanelState extends ConsumerState<RecordingPanel>
   Future<void> _syncState() async {
     final service = ref.read(recordingServiceProvider);
     final isRecording = await service.syncBackgroundState();
-    // Notifierの状態をバックグラウンドの実態に合わせる
     final currentState = ref.read(recordingNotifierProvider);
     if (currentState.isRecording != isRecording) {
-      // 状態不一致の場合はリロード（UI再構築のトリガー）
       ref.invalidate(recordingNotifierProvider);
+    }
+  }
+
+  void _updatePulseAnimation({required bool isRecording}) {
+    if (isRecording) {
+      if (!_pulseController.isAnimating) {
+        _pulseController.repeat(reverse: true);
+      }
+    } else {
+      _pulseController.stop();
+      _pulseController.reset();
     }
   }
 
@@ -54,6 +74,9 @@ class _RecordingPanelState extends ConsumerState<RecordingPanel>
   @override
   Widget build(BuildContext context) {
     final recordingState = ref.watch(recordingNotifierProvider);
+
+    // アニメーション状態を録音状態に同期
+    _updatePulseAnimation(isRecording: recordingState.isRecording);
 
     return Center(
       child: Padding(
@@ -82,7 +105,7 @@ class _RecordingPanelState extends ConsumerState<RecordingPanel>
               ),
             const SizedBox(height: 48),
 
-            // 録音ボタン
+            // 録音ボタン（パルスアニメーション付き）
             GestureDetector(
               onTap: () {
                 final notifier = ref.read(recordingNotifierProvider.notifier);
@@ -92,30 +115,48 @@ class _RecordingPanelState extends ConsumerState<RecordingPanel>
                   notifier.startRecording();
                 }
               },
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: recordingState.isRecording
-                      ? Colors.red
-                      : Theme.of(context).colorScheme.primary,
-                  boxShadow: [
-                    BoxShadow(
-                      color: (recordingState.isRecording
-                              ? Colors.red
-                              : Theme.of(context).colorScheme.primary)
-                          .withValues(alpha: 0.4),
-                      blurRadius: 20,
-                      spreadRadius: 5,
+              child: AnimatedBuilder(
+                animation: _pulseAnimation,
+                builder: (context, child) {
+                  final scale = recordingState.isRecording
+                      ? _pulseAnimation.value
+                      : 1.0;
+                  final shadowSpread = recordingState.isRecording
+                      ? 5.0 + (_pulseAnimation.value - 1.0) * 40
+                      : 5.0;
+                  final shadowOpacity = recordingState.isRecording
+                      ? 0.3 + (_pulseAnimation.value - 1.0) * 1.5
+                      : 0.4;
+
+                  return Transform.scale(
+                    scale: scale,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: recordingState.isRecording
+                            ? Colors.red
+                            : Theme.of(context).colorScheme.primary,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (recordingState.isRecording
+                                    ? Colors.red
+                                    : Theme.of(context).colorScheme.primary)
+                                .withValues(alpha: shadowOpacity),
+                            blurRadius: 20,
+                            spreadRadius: shadowSpread,
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        recordingState.isRecording ? Icons.stop : Icons.mic,
+                        color: Colors.white,
+                        size: 48,
+                      ),
                     ),
-                  ],
-                ),
-                child: Icon(
-                  recordingState.isRecording ? Icons.stop : Icons.mic,
-                  color: Colors.white,
-                  size: 48,
-                ),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 24),

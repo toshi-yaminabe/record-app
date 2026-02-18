@@ -1,25 +1,15 @@
 /**
- * PATCH /api/memories/[id] - メモリーテキスト更新
+ * GET /api/memories/[id] - メモリー取得
+ *
+ * NOTE: PATCH (メモリーテキスト更新) は廃止済み。
+ * memory-service.js の updateMemoryText を参照のこと。
  */
 
 import { withApi } from '@/lib/middleware.js'
-import { updateMemoryText } from '@/lib/services/memory-service.js'
-import { ValidationError } from '@/lib/errors.js'
-import { validateBody, memoryUpdateSchema } from '@/lib/validators.js'
+import { getMemory } from '@/lib/services/memory-service.js'
 
-export const PATCH = withApi(async (request, { userId, params }) => {
+export const GET = withApi(async (request, { userId, params }) => {
   const { id } = params
-  const body = await request.json()
-  const validated = validateBody(memoryUpdateSchema, body)
-  const { text } = validated
-
-  if (!text || typeof text !== 'string' || text.trim().length === 0) {
-    throw new ValidationError('text is required and must be a non-empty string')
-  }
-  if (text.length > 50000) {
-    throw new ValidationError('text must be at most 50000 characters')
-  }
-
-  const memory = await updateMemoryText(userId, id, text.trim())
+  const memory = await getMemory(userId, id)
   return { memory }
 })

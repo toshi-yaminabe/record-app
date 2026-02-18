@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/app_logger.dart';
 import '../../core/constants.dart';
 import '../../core/errors.dart';
@@ -69,29 +70,46 @@ class OfflineQueueService {
     }
   }
 
+  /// 認証ヘッダーを含むHTTPヘッダーを生成
+  Map<String, String> _buildHeaders() {
+    final token =
+        Supabase.instance.client.auth.currentSession?.accessToken;
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
+
   /// エントリを処理（サーバーに送信）
   Future<bool> _processEntry(QueueEntry entry) async {
     try {
       final uri = Uri.parse('$baseUrl${entry.endpoint}');
+      final headers = _buildHeaders();
       late http.Response response;
 
       switch (entry.method) {
         case 'POST':
           response = await http.post(
             uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: entry.payload,
           );
           break;
         case 'PATCH':
           response = await http.patch(
             uri,
-            headers: {'Content-Type': 'application/json'},
+            headers: headers,
             body: entry.payload,
           );
           break;
         case 'DELETE':
-          response = await http.delete(uri);
+          response = await http.delete(
+            uri,
+            headers: {
+              if (headers['Authorization'] != null)
+                'Authorization': headers['Authorization']!,
+            },
+          );
           break;
         default:
           throw ApiException('Unsupported HTTP method: ${entry.method}');

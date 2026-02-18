@@ -3,12 +3,11 @@
  * GET  /api/transcribe - セグメント一覧取得
  */
 
-import { NextResponse } from 'next/server'
 import { withApi } from '@/lib/middleware.js'
-import { prisma } from '@/lib/prisma.js'
 import { transcribeAudio } from '@/lib/gemini.js'
-import { STT_STATUS, SESSION_STATUS } from '@/lib/constants.js'
-import { ValidationError, AppError } from '@/lib/errors.js'
+import { AppError, ValidationError } from '@/lib/errors.js'
+import { findOrCreateSession } from '@/lib/services/session-service.js'
+import { createOrUpdateSegment, listSegments } from '@/lib/services/segment-service.js'
 
 const MAX_AUDIO_SIZE = 6 * 1024 * 1024 // 6MB
 const ALLOWED_MIME = ['audio/mp4', 'audio/mpeg', 'audio/m4a', 'audio/aac', 'audio/wav']
@@ -62,66 +61,34 @@ export const POST = withApi(async (request, { userId }) => {
     throw error
   }
 
-  let session = await prisma.session.findFirst({
-    where: { deviceId, userId, status: SESSION_STATUS.ACTIVE },
-    orderBy: { startedAt: 'desc' },
+  const session = await findOrCreateSession(userId, { deviceId })
+
+  const segment = await createOrUpdateSegment(userId, {
+    sessionId: session.id,
+    segmentNo,
+    text,
+    startAt,
+    endAt,
   })
 
-  if (!session) {
-    session = await prisma.session.create({
-      data: { userId, deviceId, status: SESSION_STATUS.ACTIVE },
-    })
-  }
-
-  const segment = await prisma.segment.upsert({
-    where: {
-      sessionId_segmentNo: { sessionId: session.id, segmentNo },
-    },
-    update: {
-      text,
-      startAt: startAt ? new Date(startAt) : new Date(),
-      endAt: endAt ? new Date(endAt) : new Date(),
-      sttStatus: STT_STATUS.DONE,
-    },
-    create: {
+  return {
+    segment: {
+      id: segment.id,
       sessionId: session.id,
-      userId,
       segmentNo,
-      startAt: startAt ? new Date(startAt) : new Date(),
-      endAt: endAt ? new Date(endAt) : new Date(),
       text,
-      sttStatus: STT_STATUS.DONE,
+      sttStatus: segment.sttStatus,
     },
-  })
-
-  return NextResponse.json({
-    success: true,
-    data: {
-      segment: {
-        id: segment.id,
-        sessionId: session.id,
-        segmentNo,
-        text,
-        sttStatus: segment.sttStatus,
-      },
-    },
-  })
+  }
 }, { rateLimit: { requests: 10, window: '1 m' } })
 
 export const GET = withApi(async (request, { userId }) => {
   const { searchParams } = new URL(request.url)
   const sessionId = searchParams.get('sessionId')
 
-  const where = { userId }
-  if (sessionId) where.sessionId = sessionId
-
-  const segments = await prisma.segment.findMany({
-    where,
-    orderBy: [
-      { sessionId: 'desc' },
-      { segmentNo: 'asc' },
-    ],
-    take: 100,
+  const segments = await listSegments(userId, {
+    sessionId: sessionId || undefined,
+    limit: 100,
   })
 
   return { segments }

@@ -15,15 +15,24 @@ class _DailyCheckinPageState extends ConsumerState<DailyCheckinPage> {
   @override
   void initState() {
     super.initState();
-    // 初回読み込み
-    Future.microtask(() {
-      ref.read(proposalNotifierProvider.notifier).fetchTodayProposals();
+    Future.microtask(() async {
+      // 今日の提案を取得し、空なら自動生成
+      await ref.read(proposalNotifierProvider.notifier).fetchTodayProposals();
+      final state = ref.read(proposalNotifierProvider);
+      if (state.proposals.isEmpty && !state.isGenerating) {
+        ref.read(proposalNotifierProvider.notifier).generateTodayProposals();
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(proposalNotifierProvider);
+
+    // REJECTED以外のみ表示
+    final visibleProposals = state.proposals
+        .where((p) => p.status != 'REJECTED')
+        .toList();
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -113,7 +122,7 @@ class _DailyCheckinPageState extends ConsumerState<DailyCheckinPage> {
                           Text(
                             '1. 録音タブで録音を開始\n'
                             '2. 文字起こしが完了するまで待つ\n'
-                            '3. この画面で「提案を生成」を再実行',
+                            '3. この画面で「再生成」を実行',
                             style: TextStyle(
                               color: Theme.of(context)
                                   .colorScheme
@@ -154,39 +163,38 @@ class _DailyCheckinPageState extends ConsumerState<DailyCheckinPage> {
               ),
             ),
 
-          // 生成ボタン
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: FilledButton.icon(
-                onPressed: state.isGenerating
-                    ? null
-                    : () {
-                        ref
-                            .read(proposalNotifierProvider.notifier)
-                            .generateTodayProposals();
-                      },
-                icon: state.isGenerating
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.auto_awesome),
-                label: Text(
-                  state.proposals.isEmpty ? '提案を生成' : '提案を再生成',
+          // 再生成ボタン（提案が存在する場合のみ表示）
+          if (state.proposals.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: FilledButton.icon(
+                  onPressed: state.isGenerating
+                      ? null
+                      : () {
+                          ref
+                              .read(proposalNotifierProvider.notifier)
+                              .generateTodayProposals();
+                        },
+                  icon: state.isGenerating
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.auto_awesome),
+                  label: const Text('再生成'),
                 ),
               ),
             ),
-          ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 16)),
 
           // ローディング
-          if (state.isLoading)
+          if (state.isLoading || state.isGenerating)
             const SliverToBoxAdapter(
               child: Center(
                 child: Padding(
@@ -197,7 +205,7 @@ class _DailyCheckinPageState extends ConsumerState<DailyCheckinPage> {
             ),
 
           // 提案が空
-          if (!state.isLoading && state.proposals.isEmpty)
+          if (!state.isLoading && !state.isGenerating && state.proposals.isEmpty)
             SliverToBoxAdapter(
               child: Center(
                 child: Padding(
@@ -216,28 +224,21 @@ class _DailyCheckinPageState extends ConsumerState<DailyCheckinPage> {
                               color: Theme.of(context).colorScheme.outline,
                             ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '「提案を生成」ボタンを押してください',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.outline,
-                            ),
-                      ),
                     ],
                   ),
                 ),
               ),
             ),
 
-          // 提案カードリスト
-          if (!state.isLoading && state.proposals.isNotEmpty)
+          // 提案カードリスト（REJECTED除外済み）
+          if (!state.isLoading && !state.isGenerating && visibleProposals.isNotEmpty)
             SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
-                  final proposal = state.proposals[index];
+                  final proposal = visibleProposals[index];
                   return _ProposalCard(proposal: proposal);
                 },
-                childCount: state.proposals.length,
+                childCount: visibleProposals.length,
               ),
             ),
 
@@ -269,77 +270,95 @@ class _ProposalCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isPending = proposal.status == 'PENDING';
     final isConfirmed = proposal.status == 'CONFIRMED';
-    final isRejected = proposal.status == 'REJECTED';
 
+    // 確定済み: 縮小・チェックマーク表示
+    if (isConfirmed) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 2.0),
+        child: Card(
+          elevation: 0,
+          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.check_circle,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    proposal.title,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                  ),
+                ),
+                _TypeBadge(type: proposal.type),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // 未決定: ExpansionTileでボディを折りたたみ
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
       child: Card(
         elevation: isPending ? 2 : 0,
-        color: isRejected
-            ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)
-            : null,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // タイプバッジ + ステータス
-              Row(
-                children: [
-                  _TypeBadge(type: proposal.type),
-                  const Spacer(),
-                  if (isConfirmed)
-                    Chip(
-                      label: const Text('承認済み'),
-                      backgroundColor:
-                          Theme.of(context).colorScheme.primaryContainer,
-                      labelStyle: TextStyle(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                        fontSize: 12,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  if (isRejected)
-                    Chip(
-                      label: const Text('却下'),
-                      backgroundColor:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
-                      labelStyle: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                      ),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // タイトル
-              Text(
-                proposal.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      decoration: isRejected
-                          ? TextDecoration.lineThrough
-                          : null,
-                    ),
-              ),
-
-              // ボディ
-              if (proposal.body != null && proposal.body!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  proposal.body!,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ヘッダー行（タイプバッジ + タイトル + ステータス）
+            if (proposal.body != null && proposal.body!.isNotEmpty)
+              ExpansionTile(
+                leading: _TypeBadge(type: proposal.type),
+                title: Text(
+                  proposal.title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
                 ),
-              ],
+                childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      proposal.body!,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                    ),
+                  ),
+                ],
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Row(
+                  children: [
+                    _TypeBadge(type: proposal.type),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        proposal.title,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-              // アクションボタン
-              if (isPending) ...[
-                const SizedBox(height: 12),
-                Row(
+            // アクションボタン
+            if (isPending)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     OutlinedButton(
@@ -361,9 +380,8 @@ class _ProposalCard extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ],
-            ],
-          ),
+              ),
+          ],
         ),
       ),
     );

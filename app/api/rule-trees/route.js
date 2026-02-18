@@ -5,7 +5,7 @@
 
 import { withApi } from '@/lib/middleware.js'
 import { getRuleTree, replaceRuleTree } from '@/lib/services/rule-tree-service.js'
-import { ValidationError } from '@/lib/errors.js'
+import { validateBody, ruleTreeUpdateSchema } from '@/lib/validators.js'
 
 export const GET = withApi(async (request, { userId }) => {
   const ruleTree = await getRuleTree(userId)
@@ -14,11 +14,8 @@ export const GET = withApi(async (request, { userId }) => {
 
 export const PUT = withApi(async (request, { userId }) => {
   const body = await request.json()
-  const { nodes } = body
-
-  if (!nodes) {
-    throw new ValidationError('nodes array is required')
-  }
+  const validated = validateBody(ruleTreeUpdateSchema, body)
+  const { nodes } = validated
 
   const newNodes = await replaceRuleTree(userId, nodes)
   return { nodes: newNodes }

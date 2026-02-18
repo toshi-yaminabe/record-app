@@ -5,8 +5,8 @@
 
 import { withApi } from '@/lib/middleware.js'
 import { getWeeklyReview, createWeeklyExecution } from '@/lib/services/weekly-service.js'
-import { ValidationError } from '@/lib/errors.js'
 import { validateBody, weeklyCreateSchema } from '@/lib/validators.js'
+import { ValidationError } from '@/lib/errors.js'
 
 export const GET = withApi(async (request, { userId }) => {
   const { searchParams } = new URL(request.url)
@@ -24,10 +24,6 @@ export const POST = withApi(async (request, { userId }) => {
   const body = await request.json()
   const validated = validateBody(weeklyCreateSchema, body)
   const { weekKey, proposalId, note } = validated
-
-  if (!weekKey || !proposalId) {
-    throw new ValidationError('weekKey and proposalId are required')
-  }
 
   const execution = await createWeeklyExecution(userId, { weekKey, proposalId, note })
   return { execution }

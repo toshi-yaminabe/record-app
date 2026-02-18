@@ -18,15 +18,15 @@ class _HomePageState extends ConsumerState<HomePage> {
 
   final List<Widget> _pages = const [
     RecordingPanel(),
-    TaskListPage(),
     DailyCheckinPage(),
+    TaskListPage(),
     SettingsPage(),
   ];
 
   final List<String> _titles = const [
     '録音',
-    'タスク',
     '日次チェックイン',
+    'タスク',
     '設定',
   ];
 
@@ -61,12 +61,12 @@ class _HomePageState extends ConsumerState<HomePage> {
             label: '録音',
           ),
           NavigationDestination(
-            icon: Icon(Icons.task_alt),
-            label: 'タスク',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.calendar_today),
             label: '日次',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.task_alt),
+            label: 'タスク',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings),

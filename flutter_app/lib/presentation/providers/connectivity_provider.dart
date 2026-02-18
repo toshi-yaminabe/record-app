@@ -19,7 +19,7 @@ final isOnlineProvider = Provider<bool>((ref) {
   final connectivityAsync = ref.watch(connectivityProvider);
   return connectivityAsync.when(
     data: (isOnline) => isOnline,
-    loading: () => true, // ローディング中はオンラインと仮定
+    loading: () => false, // ローディング中はオフラインと仮定（安全側）
     error: (_, __) => true, // エラー時もオンラインと仮定
   );
 });

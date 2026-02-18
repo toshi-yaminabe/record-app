@@ -9,6 +9,7 @@ import './bunjins.css'
 export function BunjinManagerView() {
   const { bunjins, fetchBunjins, createBunjin, deleteBunjin, loading } = useBunjins()
   const [newBunjinName, setNewBunjinName] = useState('')
+  const [newBunjinColor, setNewBunjinColor] = useState('#6366f1')
   const [selectedBunjin, setSelectedBunjin] = useState(null)
 
   useEffect(() => {
@@ -27,8 +28,9 @@ export function BunjinManagerView() {
 
     try {
       const slug = newBunjinName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      await createBunjin({ slug, displayName: newBunjinName.trim() })
+      await createBunjin({ slug, displayName: newBunjinName.trim(), color: newBunjinColor })
       setNewBunjinName('')
+      setNewBunjinColor('#6366f1')
     } catch (err) {
       alert('作成に失敗しました: ' + err.message)
     }
@@ -100,6 +102,13 @@ export function BunjinManagerView() {
                   value={newBunjinName}
                   onChange={(e) => setNewBunjinName(e.target.value)}
                   className="bunjin-input"
+                />
+                <input
+                  type="color"
+                  value={newBunjinColor}
+                  onChange={(e) => setNewBunjinColor(e.target.value)}
+                  className="bunjin-color-input"
+                  title="分人カラーを選択"
                 />
                 <button className="btn-create" onClick={handleCreate}>
                   追加
