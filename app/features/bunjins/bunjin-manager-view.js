@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useBunjins } from '../../hooks/use-bunjins'
 import { RuleTreeEditor } from './rule-tree-editor'
 import { LoadingSkeleton } from '../../components/loading-skeleton'
+import { getBunjinSignature } from '../../utils/bunjin-signatures'
 import './bunjins.css'
 
 export function BunjinManagerView() {
@@ -12,9 +13,13 @@ export function BunjinManagerView() {
   const [newBunjinColor, setNewBunjinColor] = useState('#6366f1')
   const [selectedBunjin, setSelectedBunjin] = useState(null)
 
-  useEffect(() => {
+  const fetchInitialBunjins = useCallback(() => {
     fetchBunjins()
-  }, [])
+  }, [fetchBunjins])
+
+  useEffect(() => {
+    fetchInitialBunjins()
+  }, [fetchInitialBunjins])
 
   const customBunjins = bunjins.filter(b => !b.isDefault)
   const canAddCustom = customBunjins.length < 3
@@ -48,6 +53,39 @@ export function BunjinManagerView() {
     }
   }
 
+  const renderBunjinCard = (bunjin, kind = 'default') => {
+    const signature = getBunjinSignature(bunjin)
+
+    return (
+      <div
+        key={bunjin.id}
+        className={`bunjin-card ${kind}`}
+        style={{ '--card-color': bunjin.color }}
+        onClick={() => setSelectedBunjin(bunjin)}
+      >
+        <div className="bunjin-card-ribbon" />
+        <div className="bunjin-card-main">
+          <div className="bunjin-card-title">
+            <span className={`bunjin-shape bunjin-shape-${signature.shape}`}>{signature.icon}</span>
+            <span className="bunjin-name">{bunjin.displayName}</span>
+          </div>
+          <p className="bunjin-caption">{signature.shortLabel}</p>
+        </div>
+        {kind === 'custom' && (
+          <button
+            className="btn-delete"
+            onClick={(event) => {
+              event.stopPropagation()
+              handleDelete(bunjin.id)
+            }}
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    )
+  }
+
   return (
     <section className="bunjin-manager-view">
       <div className="bunjin-header">
@@ -61,37 +99,12 @@ export function BunjinManagerView() {
           <div className="bunjin-list-section">
             <h3>デフォルト分人</h3>
             <div className="bunjin-grid">
-              {bunjins.filter(b => b.isDefault).map(b => (
-                <div
-                  key={b.id}
-                  className="bunjin-card default"
-                  style={{ '--card-color': b.color }}
-                  onClick={() => setSelectedBunjin(b)}
-                >
-                  <span className="bunjin-name">{b.displayName}</span>
-                </div>
-              ))}
+              {bunjins.filter(b => b.isDefault).map(b => renderBunjinCard(b, 'default'))}
             </div>
 
             <h3>カスタム分人 ({customBunjins.length}/3)</h3>
             <div className="bunjin-grid">
-              {customBunjins.map(b => (
-                <div
-                  key={b.id}
-                  className="bunjin-card custom"
-                  style={{ '--card-color': b.color }}
-                >
-                  <span className="bunjin-name" onClick={() => setSelectedBunjin(b)}>
-                    {b.displayName}
-                  </span>
-                  <button
-                    className="btn-delete"
-                    onClick={() => handleDelete(b.id)}
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
+              {customBunjins.map(b => renderBunjinCard(b, 'custom'))}
             </div>
 
             {canAddCustom && (

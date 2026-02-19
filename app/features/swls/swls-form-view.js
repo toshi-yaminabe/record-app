@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useApi } from '../../hooks/use-api'
 import { logger } from '@/lib/logger.js'
 import './swls.css'
@@ -21,11 +21,7 @@ export function SwlsFormView() {
   const [lastSubmitted, setLastSubmitted] = useState(null)
   const [submitStatus, setSubmitStatus] = useState(null)
 
-  useEffect(() => {
-    fetchLatestResponse()
-  }, [])
-
-  const fetchLatestResponse = async () => {
+  const fetchLatestResponse = useCallback(async () => {
     try {
       const today = new Date().toISOString().slice(0, 10)
       const data = await fetchApi(`/api/swls?dateKey=${today}`)
@@ -43,7 +39,11 @@ export function SwlsFormView() {
     } catch (err) {
       logger.error('Failed to fetch SWLS', { error: err.message })
     }
-  }
+  }, [fetchApi])
+
+  useEffect(() => {
+    fetchLatestResponse()
+  }, [fetchLatestResponse])
 
   const handleSelect = (questionId, value) => {
     setResponses(prev => ({ ...prev, [questionId]: value }))
@@ -96,6 +96,7 @@ export function SwlsFormView() {
               {q.id}. {q.text}
             </label>
             <div className="likert-scale">
+              <div className="likert-track" aria-hidden="true" />
               {SCALE.map(val => (
                 <label key={val} className="likert-option">
                   <input
@@ -108,6 +109,11 @@ export function SwlsFormView() {
                   <span className="likert-label">{val}</span>
                 </label>
               ))}
+            </div>
+            <div className="likert-legend">
+              <span>全く同意しない</span>
+              <span>中立</span>
+              <span>強く同意する</span>
             </div>
           </div>
         ))}
