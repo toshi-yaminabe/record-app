@@ -19,8 +19,14 @@ export function TaskItem({ task, onStatusChange }) {
     onStatusChange(task.id, 'ARCHIVED')
   }
 
+  const ribbonColor = task.bunjin?.color || 'var(--accent-purple)'
+
   return (
     <div className="task-item">
+      <div
+        className="task-ribbon"
+        style={{ backgroundColor: ribbonColor }}
+      />
       <input
         type="checkbox"
         checked={task.status === 'DONE'}

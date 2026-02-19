@@ -4,10 +4,9 @@
  */
 
 import { withApi } from '@/lib/middleware.js'
-import { transcribeAudio } from '@/lib/gemini.js'
 import { AppError, ValidationError } from '@/lib/errors.js'
-import { findOrCreateSession } from '@/lib/services/session-service.js'
-import { createOrUpdateSegment, listSegments } from '@/lib/services/segment-service.js'
+import { transcribeSegment } from '@/lib/services/transcribe-service.js'
+import { listSegments } from '@/lib/services/segment-service.js'
 
 const MAX_AUDIO_SIZE = 6 * 1024 * 1024 // 6MB
 const ALLOWED_MIME = ['audio/mp4', 'audio/mpeg', 'audio/m4a', 'audio/aac', 'audio/wav']
@@ -41,40 +40,20 @@ export const POST = withApi(async (request, { userId }) => {
   const arrayBuffer = await audioFile.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
 
-  let text
-  try {
-    text = await transcribeAudio(buffer, audioFile.type || 'audio/mp4', userId)
-  } catch (error) {
-    // Geminiタイムアウトエラーを検出して504を返す
-    if (error.message?.includes('timeout')) {
-      throw new AppError('Gemini API request timeout. Please try again.', 504)
-    }
-    // Gemini APIエラー（rate limit等）を検出して502を返す
-    if (error.message?.includes('quota') || error.message?.includes('rate limit')) {
-      throw new AppError('Gemini API rate limit exceeded. Please wait and try again.', 502)
-    }
-    // その他のGemini APIエラーも502として扱う
-    if (error.message?.includes('GEMINI_API_KEY') || error.message?.includes('API')) {
-      throw new AppError('Gemini API error. Please check configuration.', 502)
-    }
-    // その他の予期しないエラーは再スロー
-    throw error
-  }
-
-  const session = await findOrCreateSession(userId, { deviceId })
-
-  const segment = await createOrUpdateSegment(userId, {
-    sessionId: session.id,
+  const { segment, sessionId: resolvedSessionId, text } = await transcribeSegment(userId, {
+    audioBuffer: buffer,
+    mimeType: audioFile.type || 'audio/mp4',
+    sessionId,
     segmentNo,
-    text,
     startAt,
     endAt,
+    deviceId,
   })
 
   return {
     segment: {
       id: segment.id,
-      sessionId: session.id,
+      sessionId: resolvedSessionId,
       segmentNo,
       text,
       sttStatus: segment.sttStatus,

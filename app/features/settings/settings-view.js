@@ -2,35 +2,29 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { InstallView } from '../install/install-view'
-import { logger } from '@/lib/logger.js'
+import { useApi } from '@/app/hooks/use-api'
 import styles from './settings-view.module.css'
 
 /**
  * 設定画面 - APIキー管理 + 開発者ツール
  */
 export function SettingsView() {
+  const { fetchApi, loading } = useApi()
   const [hasKey, setHasKey] = useState(false)
   const [updatedAt, setUpdatedAt] = useState(null)
   const [apiKey, setApiKey] = useState('')
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState(null)
 
   const fetchSettings = useCallback(async () => {
     try {
-      setLoading(true)
-      const res = await fetch('/api/settings')
-      if (res.ok) {
-        const data = await res.json()
-        setHasKey(data.settings.hasGeminiApiKey)
-        setUpdatedAt(data.settings.updatedAt)
-      }
-    } catch (error) {
-      logger.error('Failed to fetch settings', { error: error.message })
-    } finally {
-      setLoading(false)
+      const result = await fetchApi('/api/settings')
+      setHasKey(result.settings.hasGeminiApiKey)
+      setUpdatedAt(result.settings.updatedAt)
+    } catch {
+      // エラーは useApi の loading/error サイクルで管理
     }
-  }, [])
+  }, [fetchApi])
 
   useEffect(() => {
     fetchSettings()
@@ -45,24 +39,16 @@ export function SettingsView() {
     try {
       setSaving(true)
       setMessage(null)
-      const res = await fetch('/api/settings', {
+      const result = await fetchApi('/api/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ geminiApiKey: apiKey.trim() }),
       })
-
-      if (res.ok) {
-        const data = await res.json()
-        setHasKey(data.settings.hasGeminiApiKey)
-        setUpdatedAt(data.settings.updatedAt)
-        setApiKey('')
-        setMessage({ type: 'success', text: 'APIキーを保存しました' })
-      } else {
-        const data = await res.json()
-        setMessage({ type: 'error', text: data.error || '保存に失敗しました' })
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: '通信エラーが発生しました' })
+      setHasKey(result.settings.hasGeminiApiKey)
+      setUpdatedAt(result.settings.updatedAt)
+      setApiKey('')
+      setMessage({ type: 'success', text: 'APIキーを保存しました' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || '保存に失敗しました' })
     } finally {
       setSaving(false)
     }
@@ -74,15 +60,12 @@ export function SettingsView() {
     try {
       setSaving(true)
       setMessage(null)
-      const res = await fetch('/api/settings', { method: 'DELETE' })
-
-      if (res.ok) {
-        setHasKey(false)
-        setUpdatedAt(null)
-        setMessage({ type: 'success', text: 'APIキーを削除しました' })
-      }
-    } catch (error) {
-      setMessage({ type: 'error', text: '削除に失敗しました' })
+      await fetchApi('/api/settings', { method: 'DELETE' })
+      setHasKey(false)
+      setUpdatedAt(null)
+      setMessage({ type: 'success', text: 'APIキーを削除しました' })
+    } catch (err) {
+      setMessage({ type: 'error', text: err.message || '削除に失敗しました' })
     } finally {
       setSaving(false)
     }

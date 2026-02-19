@@ -1,3 +1,5 @@
+import 'bunjin_summary.dart';
+
 /// タスクモデル
 class TaskModel {
   final String id;
@@ -10,6 +12,7 @@ class TaskModel {
   final DateTime? archivedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final BunjinSummary? bunjin;
 
   const TaskModel({
     required this.id,
@@ -22,6 +25,7 @@ class TaskModel {
     this.archivedAt,
     required this.createdAt,
     required this.updatedAt,
+    this.bunjin,
   });
 
   /// タスクステータス遷移マトリックス（サーバーと同一）
@@ -51,6 +55,9 @@ class TaskModel {
           : null,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      bunjin: json['bunjin'] != null
+          ? BunjinSummary.fromJson(json['bunjin'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -66,6 +73,7 @@ class TaskModel {
       'archivedAt': archivedAt?.toUtc().toIso8601String(),
       'createdAt': createdAt.toUtc().toIso8601String(),
       'updatedAt': updatedAt.toUtc().toIso8601String(),
+      'bunjin': bunjin?.toJson(),
     };
   }
 
@@ -80,6 +88,7 @@ class TaskModel {
     DateTime? archivedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
+    BunjinSummary? bunjin,
   }) {
     return TaskModel(
       id: id ?? this.id,
@@ -92,6 +101,7 @@ class TaskModel {
       archivedAt: archivedAt ?? this.archivedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      bunjin: bunjin ?? this.bunjin,
     );
   }
 }

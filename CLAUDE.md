@@ -31,10 +31,10 @@ record-app/
 │   ├── prisma.js             ← DB接続（Supabase PostgreSQL via PgBouncer）
 │   ├── gemini.js             ← Gemini API（STT + 提案生成, 環境変数 > DB保存キー の優先順位）
 │   ├── crypto.js             ← AES-256-GCM暗号化（APIキーのDB保存用）
-│   ├── constants.js          ← 全定数（MOCK_USER_ID, ステータス, デフォルト分人定義）
+│   ├── constants.js          ← 全定数（MOCK_USER_ID, ステータス, デフォルト分人, BUNJIN_LIMITS, GEMINI_API_TIMEOUT_MS）
 │   ├── errors.js             ← AppError/ValidationError/NotFoundError/ConflictError + errorResponse()
-│   ├── validators.js         ← タスク状態遷移マトリクス, ルールツリーバリデーション, 日付検証
-│   └── services/             ← ビジネスロジック層（9サービス）
+│   ├── validators.js         ← タスク状態遷移 + STT状態遷移マトリクス, ルールツリーバリデーション, 日付検証
+│   └── services/             ← ビジネスロジック層（10サービス）
 │       ├── bunjin-service.js
 │       ├── memory-service.js
 │       ├── proposal-service.js
@@ -43,10 +43,11 @@ record-app/
 │       ├── session-service.js
 │       ├── swls-service.js
 │       ├── task-service.js
+│       ├── transcribe-service.js  ← 文字起こしビジネスロジック（route.jsから抽出）
 │       └── weekly-service.js
 │
 ├── app/
-│   ├── api/                  ← 20 APIエンドポイント（REST, 全て MOCK_USER_ID認証）
+│   ├── api/                  ← 20 APIエンドポイント（REST, Supabase Auth JWT認証）
 │   │   ├── bunjins/          ← 分人 CRUD (GET/POST/PATCH/DELETE)
 │   │   ├── cron/archive-tasks/ ← タスク自動アーカイブ (GET, CRON_SECRET認証)
 │   │   ├── health/           ← ヘルスチェック (GET, 認証不要)
@@ -60,22 +61,29 @@ record-app/
 │   │   ├── tasks/            ← タスク CRUD (GET/POST/PATCH)
 │   │   ├── transcribe/       ← 音声文字起こし (POST multipart/GET)
 │   │   └── weekly-review/    ← 週次レビュー (GET/POST)
+│   ├── contexts/
+│   │   └── auth-context.js   ← AuthProvider + useAuth() (Supabase Auth)
+│   ├── lib/
+│   │   └── supabase-client.js ← クライアント側Supabaseシングルトン
+│   ├── login/
+│   │   └── page.js           ← ログイン/サインアップUI
 │   ├── components/           ← 共通UIコンポーネント (header, tab-navigation, etc.)
 │   ├── features/             ← 機能別ビュー (bunjins, daily, history, tasks, etc.)
 │   ├── hooks/                ← React hooks (use-api, use-bunjins, use-proposals, use-tasks)
-│   ├── page.js               ← ダッシュボード（SPA, タブ切り替え）
-│   ├── layout.js             ← ルートレイアウト
+│   ├── providers.js          ← Client Componentラッパー (AuthProvider)
+│   ├── page.js               ← ダッシュボード（SPA, タブ切り替え, 認証ガード付き）
+│   ├── layout.js             ← ルートレイアウト (Providers統合)
 │   └── error.js              ← エラーバウンダリ
 │
 ├── flutter_app/              ← Flutter モバイルアプリ (Android)
 │   └── lib/
 │       ├── main.dart                          ← エントリポイント (ProviderScope + deviceId初期化)
 │       ├── core/
-│       │   ├── constants.dart                 ← AppConstants (mockUserId) + ApiConfig (baseUrl)
+│       │   ├── constants.dart                 ← AppConstants (mockUserId, bunjinLimits) + ApiConfig (baseUrl)
 │       │   ├── errors.dart                    ← カスタムエラー
 │       │   └── app_logger.dart                ← カテゴリ別ロガー (API/DB/REC/QUEUE/LIFE)
 │       ├── data/
-│       │   ├── models/                        ← DTOモデル (session/task/bunjin/proposal/segment)
+│       │   ├── models/                        ← DTOモデル (session/task/bunjin/bunjin_summary/proposal/segment)
 │       │   ├── repositories/                  ← APIリポジトリ (session/task/bunjin/proposal)
 │       │   └── local/                         ← SQLiteオフラインキュー (offline_queue_db, queue_entry)
 │       ├── presentation/
@@ -127,13 +135,13 @@ record-app/
 | `GEMINI_API_KEY` | Gemini API (STT + 提案生成) | 必須 (※DB保存でも代替可) |
 | `ENCRYPTION_KEY` | AES-256-GCM暗号化キー (32byte hex) | 任意 (未設定時DATABASE_URLハッシュ) |
 | `CRON_SECRET` | Cronジョブ認証トークン | 任意 |
+| `NEXT_PUBLIC_SUPABASE_URL` | クライアント側Supabase URL | 必須 (Web認証用) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | クライアント側Supabase anon key | 必須 (Web認証用) |
+| `DEV_AUTH_BYPASS` | 開発環境で認証バイパス (`true`/`false`) | 任意 |
 
 Flutter側: `API_BASE_URL` をビルド時に `--dart-define` で注入。
 
-**MOCK_USER_ID 同期ルール**: 以下3箇所で `mock-user-001` を一致させること:
-1. `lib/constants.js` — バックエンド全API
-2. `flutter_app/lib/core/constants.dart` — Flutterアプリ
-3. `prisma/seed.mjs` — 初期データ投入
+**認証フロー**: Web UI は Supabase Auth (メール+パスワード) でログイン。JWT は `use-api.js` フックで全API呼び出しに自動付与。サーバー側 `lib/middleware.js` が JWT を検証し userId を取得。開発環境では `DEV_AUTH_BYPASS=true` でモックユーザーにフォールバック。
 
 ---
 
@@ -182,4 +190,4 @@ vercel deploy --prod
 - **完了時**: ISSUES.md から該当行を削除（GitHub側で自動close）
 
 ### 現在のブロッカー
-なし（2026-02-17時点で全Issue解決済み）
+なし（2026-02-19時点。#58-#62は新機能実装が必要な構造的課題）

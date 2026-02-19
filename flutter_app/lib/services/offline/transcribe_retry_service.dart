@@ -74,6 +74,15 @@ class TranscribeRetryService {
           AppLogger.queue(
               'transcribe retry: entry#${entry.id} SUCCESS, file deleted');
         } catch (e) {
+          // 409 Conflict: セグメントは既にサーバーに存在 → 成功扱い
+          if (_isConflictError(e)) {
+            AppLogger.queue(
+                'transcribe retry: entry#${entry.id} 409 Conflict (already exists), marking as completed');
+            await _store.markCompleted(entry.id);
+            await file.delete();
+            continue; // 次のエントリへ
+          }
+
           // HTTPステータスコードに基づく永久エラー判定
           if (_isPermanentError(e)) {
             AppLogger.queue(
@@ -114,8 +123,24 @@ class TranscribeRetryService {
     }
   }
 
+  /// エラーが 409 Conflict かを判定
+  /// 409 = セグメントは既にサーバーに存在（冪等性）→ 成功扱い
+  bool _isConflictError(dynamic error) {
+    if (error is ServerEngineException && error.statusCode == 409) {
+      return true;
+    }
+    if (error is TranscribeException && error.statusCode == 409) {
+      return true;
+    }
+    final statusMatch = RegExp(r'\((\d{3})\)').firstMatch(error.toString());
+    if (statusMatch != null && int.parse(statusMatch.group(1)!) == 409) {
+      return true;
+    }
+    return false;
+  }
+
   /// エラーが永久的（リトライしても無意味）かを判定
-  /// 4xxエラー（413, 400, 404等）→ 即dead_letter化
+  /// 4xxエラー（413, 400, 404等）→ 即dead_letter化（409は除外）
   /// 5xxエラー → リトライ対象（一時的なサーバーエラーの可能性）
   bool _isPermanentError(dynamic error) {
     final message = error.toString();

@@ -16,6 +16,11 @@ class AppConstants {
   // 文人デフォルトカラー
   static const String defaultBunjinColor = '#3B82F6';
 
+  // 分人数上限（lib/constants.js BUNJIN_LIMITS と同期すること）
+  static const int maxDefaultBunjins = 5;
+  static const int maxCustomBunjins = 3;
+  static const int maxTotalBunjins = 8;
+
   // UTC Note: すべてのDateTime操作は .toUtc() を使用すること
 }
 

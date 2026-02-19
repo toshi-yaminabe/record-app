@@ -1,30 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { logger } from '@/lib/logger.js'
+import { useState, useEffect, useCallback } from 'react'
+import { useApi } from '@/app/hooks/use-api'
 
 export function HistoryView() {
+  const { fetchApi, loading, error } = useApi()
   const [transcripts, setTranscripts] = useState([])
-  const [loading, setLoading] = useState(true)
+
+  const fetchTranscripts = useCallback(async () => {
+    try {
+      const result = await fetchApi('/api/segments')
+      setTranscripts((result.segments ?? []).slice(0, 10))
+    } catch {
+      // エラーは useApi の error ステートで管理
+    }
+  }, [fetchApi])
 
   useEffect(() => {
     fetchTranscripts()
-  }, [])
-
-  async function fetchTranscripts() {
-    try {
-      const res = await fetch('/api/segments')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      if (data.segments) {
-        setTranscripts(data.segments.slice(0, 10))
-      }
-    } catch (err) {
-      logger.error('Failed to fetch history', { error: err.message })
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [fetchTranscripts])
 
   return (
     <section className="history-view">
@@ -37,7 +31,11 @@ export function HistoryView() {
 
       {loading && <div className="loading-state">読み込み中...</div>}
 
-      {!loading && transcripts.length === 0 && (
+      {!loading && error && (
+        <div className="error-state">データの取得に失敗しました: {error}</div>
+      )}
+
+      {!loading && !error && transcripts.length === 0 && (
         <div className="empty-state">
           <span className="empty-icon">📭</span>
           <p>まだ文字起こしデータがありません</p>

@@ -44,15 +44,29 @@
 }
 
 .proposal-card {
+  display: flex;
   background: var(--bg-card-hover);
   border: 1px solid var(--border-color);
   border-radius: 12px;
-  padding: 1.25rem;
+  overflow: hidden;
   transition: all 0.2s;
 }
 
 .proposal-card:hover {
   border-color: var(--accent-purple);
+}
+
+.proposal-card-ribbon {
+  width: 5px;
+  align-self: stretch;
+  border-radius: 4px 0 0 4px;
+  flex-shrink: 0;
+}
+
+.proposal-card-body {
+  flex: 1;
+  padding: 1.25rem;
+  min-width: 0;
 }
 
 .proposal-header {

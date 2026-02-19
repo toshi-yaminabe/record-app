@@ -1,24 +1,27 @@
+// キーはバックエンド lib/constants.js DEFAULT_BUNJINS の slug に統一
 const BUNJIN_SIGNATURES = {
-  personal: { icon: '◯', shortLabel: '回復', shape: 'circle' },
-  social: { icon: '◻', shortLabel: '役割', shape: 'square' },
-  home: { icon: '⌂', shortLabel: '安心', shape: 'home' },
-  community: { icon: '◎', shortLabel: 'つながり', shape: 'link' },
-  free: { icon: '★', shortLabel: '任意', shape: 'star' },
+  work: { icon: '◻', shortLabel: '業務', shape: 'square', pattern: 'stripe' },
+  creative: { icon: '◎', shortLabel: '創作', shape: 'link', pattern: 'dot' },
+  social: { icon: '◯', shortLabel: '対人', shape: 'circle', pattern: 'wave' },
+  rest: { icon: '⌂', shortLabel: '回復', shape: 'home', pattern: 'grid' },
+  learning: { icon: '★', shortLabel: '学習', shape: 'star', pattern: 'solid' },
 }
 
 const BUNJIN_NAME_TO_KEY = {
-  個人: 'personal',
+  仕事モード: 'work',
+  仕事: 'work',
+  クリエイティブ: 'creative',
+  ソーシャル: 'social',
   社会: 'social',
-  家庭: 'home',
-  コミュ: 'community',
-  コミュニティ: 'community',
-  自由: 'free',
+  休息: 'rest',
+  学習: 'learning',
 }
 
 const FALLBACK_SIGNATURE = {
   icon: '◯',
   shortLabel: '分人',
   shape: 'circle',
+  pattern: 'solid',
 }
 
 export function getBunjinSignature(bunjin) {

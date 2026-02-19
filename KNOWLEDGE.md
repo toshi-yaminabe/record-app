@@ -1,7 +1,7 @@
 # record-app ナレッジ資料
 
-**最終更新:** 2026-02-18
-**バージョン:** Web v2.0.0-beta.6 (package.json) / Flutter v2.0.0-beta.6+8 (pubspec.yaml)
+**最終更新:** 2026-02-19
+**バージョン:** Web v2.0.0-beta.12 (package.json) / Flutter v2.0.0-beta.12+13 (pubspec.yaml)
 
 ---
 
@@ -78,10 +78,10 @@ record-app/
 │   ├── prisma.js                 # Prismaクライアント初期化 (Supabase PostgreSQL via PgBouncer)
 │   ├── gemini.js                 # Gemini API (STT + 提案生成, 環境変数 > DB保存キー)
 │   ├── crypto.js                 # AES-256-GCM暗号化 (APIキーのDB保存用)
-│   ├── constants.js              # 定数定義 (MOCK_USER_ID, ステータス, デフォルト分人)
+│   ├── constants.js              # 定数定義 (MOCK_USER_ID, ステータス, デフォルト分人, BUNJIN_LIMITS, GEMINI_API_TIMEOUT_MS)
 │   ├── errors.js                 # カスタムエラークラス (AppError, errorResponse)
-│   ├── validators.js             # バリデーション (状態遷移・ルールツリー・日付検証)
-│   └── services/                 # ビジネスロジック層
+│   ├── validators.js             # バリデーション (タスク状態遷移・STT状態遷移・ルールツリー・日付検証)
+│   └── services/                 # ビジネスロジック層 (10サービス)
 │       ├── bunjin-service.js
 │       ├── memory-service.js
 │       ├── proposal-service.js
@@ -90,6 +90,7 @@ record-app/
 │       ├── session-service.js
 │       ├── swls-service.js
 │       ├── task-service.js
+│       ├── transcribe-service.js  # 文字起こしビジネスロジック (route.jsから抽出)
 │       └── weekly-service.js
 ├── prisma/
 │   ├── schema.prisma             # DBスキーマ (14モデル)
@@ -98,8 +99,8 @@ record-app/
 ├── flutter_app/                  # Flutterモバイルアプリ
 │   └── lib/
 │       ├── main.dart             # アプリエントリポイント
-│       ├── core/                 # 定数・ロガー・エラー
-│       ├── data/                 # モデル・リポジトリ・ローカルDB
+│       ├── core/                 # 定数(BUNJIN_LIMITS追加)・ロガー・エラー
+│       ├── data/                 # モデル(bunjin_summary.dart追加)・リポジトリ・ローカルDB
 │       │   └── local/            # SQLite統合DB (unified_queue.db, SQLCipher暗号化)
 │       │       ├── base_queue_db.dart          # 共通CRUDテンプレート
 │       │       ├── unified_queue_database.dart # シングルトンDB管理
@@ -108,9 +109,9 @@ record-app/
 │       │       └── offline_queue_db.dart       # 汎用APIキュー (BaseQueueDB継承)
 │       ├── presentation/         # UI (pages/providers/widgets)
 │       └── services/             # 録音・文字起こし・オフライン
-├── next.config.mjs               # Next.js設定 (ESM, bodySizeLimit: 10mb)
+├── next.config.mjs               # Next.js設定 (ESM, bodySizeLimit: 10mb, セキュリティヘッダー6種)
 ├── vercel.json                   # Vercel関数設定 (transcribe/proposals: 60s)
-└── package.json                  # v2.0.0-beta.6
+└── package.json                  # v2.0.0-beta.12
 ```
 
 ### 技術スタック
@@ -322,6 +323,22 @@ ARCHIVED  |  NG  |  NG   |  NG  |   -
 - DONE -> TODO は許可 (やり直し)
 - DONE -> DOING は禁止
 - 14日以上更新なしのタスクは自動アーカイブ (`/api/cron/archive-tasks`)
+
+### STT状態遷移マトリクス
+
+```
+FROM\TO      | PENDING | PROCESSING | DONE | FAILED
+-------------|---------|------------|------|--------
+PENDING      |   -     |    OK      |  OK  |   OK
+PROCESSING   |   NG    |    -       |  OK  |   OK
+DONE         |   NG    |    NG      |  -   |   NG
+FAILED       |   NG    |    OK      |  NG  |   -
+```
+
+- **PENDING → DONE**: サーバーサイド同期STT（PROCESSING経由不要）
+- **FAILED → PROCESSING**: リトライ時のみ
+- **DONE は最終状態** (逆行不可)
+- バリデーション: `lib/validators.js` の `validateSttTransition()`
 
 ---
 
@@ -623,6 +640,8 @@ ARCHIVED  |  NG  |  NG   |  NG  |   -
 | `ENCRYPTION_KEY` | AES-256-GCM暗号化キー (32byte hex=64文字) | 任意 | `.env` / Vercel環境変数 |
 | `CRON_SECRET` | Cronジョブ認証トークン | 任意 | Vercel環境変数 |
 | `DEV_AUTH_BYPASS` | 開発環境での認証バイパス | 任意 | `.env` (開発環境のみ) |
+| `NEXT_PUBLIC_SUPABASE_URL` | クライアント側Supabase URL (Web認証用) | 必須 | `.env` / Vercel環境変数 |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | クライアント側Supabase anon key (Web認証用) | 必須 | `.env` / Vercel環境変数 |
 | `NODE_ENV` | 実行環境 (development/production) | 自動 | Next.js自動設定 |
 
 **ENCRYPTION_KEY について:**
@@ -658,7 +677,7 @@ postgresql://postgres.[ref]:[password]@aws-1-ap-northeast-1.pooler.supabase.com:
 | `flutter_app/lib/core/constants.dart` | `AppConstants.mockUserId = 'mock-user-001'` |
 | `prisma/seed.mjs` | `MOCK_USER_ID = 'mock-user-001'` |
 
-> 将来的に Supabase Auth 導入時に置き換え予定。
+> Web UIはSupabase Auth (メール+パスワード) でログイン。`app/contexts/auth-context.js` が認証状態管理、`app/hooks/use-api.js` が全API呼び出しにJWT自動付与。開発環境では `DEV_AUTH_BYPASS=true` でモックユーザーにフォールバック。
 
 ---
 
@@ -819,9 +838,15 @@ flowchart LR
 > 詳細な課題管理・対応履歴は [GitHub Issues](https://github.com/toshi-yaminabe/record-app/issues) で管理。
 > ローカル参照: **ISSUES.md** (アクティブ課題のサマリーのみ + UXコンテキスト)。
 
-### 現在のオープンIssue
+### 現在のオープンIssue（2026-02-19 設計整合性監査で起票）
 
-なし（2026-02-18時点で全Issue解決済み）
+| Issue | Severity | 概要 |
+|-------|----------|------|
+| #58 | CRITICAL | Proposal-bunjin リレーション不在（DBマイグレーション必要） |
+| #59 | CRITICAL | E1-E5 UXフロー未実装（ガイド付きUI設計必要） |
+| #60 | HIGH | 分人Flutter/Webシグネチャ同期（形/パターン未対応） |
+| #61 | MEDIUM | CSPヘッダー未設定、DEV_AUTH_BYPASSフォールバック冗長、他 |
+| #62 | LOW | maskSensitiveMeta浅いマスク、rule-tree-service O(n) shift、他 |
 
 ### 解決済み（v2.0.0-beta.6 パイプライン復旧）
 
@@ -921,8 +946,13 @@ vercel deploy
 
 ## 付録: レスポンスエンベロープ
 
-全APIは以下のエラー形式を統一使用:
+全APIはミドルウェアで `{ success: true, data: <result> }` エンベロープでラップ。
 
+**クライアント側のアンラップ:**
+- **Web (useApi)**: `return json.data ?? json` でエンベロープを自動除去
+- **Flutter (AuthenticatedClient)**: `_unwrap()` メソッドで `json['data']` を抽出
+
+**エラー形式:**
 ```json
 { "error": "エラーメッセージ" }
 ```

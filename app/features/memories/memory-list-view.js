@@ -45,7 +45,7 @@ export function MemoryListView() {
   return (
     <section className="memory-list-view">
       <div className="memory-header">
-        <h2>思い出ノート</h2>
+        <h2>メモリー</h2>
       </div>
 
       <div className="memory-add">
@@ -70,8 +70,8 @@ export function MemoryListView() {
       {!loading && memories.length === 0 && (
         <div className="empty-state">
           <span className="empty-icon">📖</span>
-          <p>思い出がありません</p>
-          <p className="empty-hint">録音データから自動的に思い出が抽出されます</p>
+          <p>メモリーがありません</p>
+          <p className="empty-hint">録音データから自動的にメモリーが抽出されます</p>
         </div>
       )}
 

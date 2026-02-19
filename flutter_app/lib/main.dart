@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -44,7 +45,9 @@ Future<void> main() async {
     // AppLoggerが初期化済みならログ出力
     try {
       AppLogger.lifecycle('FlutterError: ${details.exceptionAsString()}');
-    } catch (_) {}
+    } catch (e) {
+      developer.log('Error: $e', name: 'record-app');
+    }
   };
 
   runZonedGuarded(
@@ -54,14 +57,18 @@ Future<void> main() async {
       } catch (e, st) {
         try {
           AppLogger.lifecycle('FATAL: initialization failed: $e\n$st');
-        } catch (_) {}
+        } catch (e) {
+          developer.log('Error: $e', name: 'record-app');
+        }
         runApp(InitializationErrorApp(error: e.toString()));
       }
     },
     (error, stackTrace) {
       try {
         AppLogger.lifecycle('Uncaught zone error: $error\n$stackTrace');
-      } catch (_) {}
+      } catch (e) {
+        developer.log('Error: $e', name: 'record-app');
+      }
     },
   );
 }
