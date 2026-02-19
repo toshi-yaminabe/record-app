@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/app/contexts/auth-context'
 import { Header } from './components/header'
 import { TabNavigation } from './components/tab-navigation'
 import { HistoryView } from './features/history/history-view'
@@ -12,7 +14,21 @@ import { WeeklyReviewView } from './features/weekly/weekly-review-view'
 import { MemoryListView } from './features/memories/memory-list-view'
 
 export default function Dashboard() {
+  const router = useRouter()
+  const { isAuthenticated, loading } = useAuth()
   const [activeTab, setActiveTab] = useState('daily')
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      router.replace('/login')
+    }
+  }, [loading, isAuthenticated, router])
+
+  if (loading) {
+    return <div className="auth-loading">認証を確認中...</div>
+  }
+
+  if (!isAuthenticated) return null
 
   const tabs = [
     { id: 'daily', label: 'Daily', icon: '☀️' },

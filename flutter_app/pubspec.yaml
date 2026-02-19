@@ -2,7 +2,7 @@ name: flutter_app
 description: "音声録音・文字起こしアプリ MVP"
 publish_to: 'none'
 
-version: 2.0.0-beta.12+13
+version: 2.0.0-beta.13+14
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
