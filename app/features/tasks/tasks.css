@@ -77,25 +77,6 @@
   color: var(--text-secondary);
 }
 
-.bunjin-chip {
-  padding: 0.2rem 0.6rem;
-  border-radius: 12px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  background: var(--chip-color);
-  color: white;
-}
-
-.bunjin-chip-sm {
-  font-size: 0.65rem;
-  padding: 0.15rem 0.5rem;
-}
-
-.bunjin-chip-md {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.7rem;
-}
-
 .status-badge {
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
