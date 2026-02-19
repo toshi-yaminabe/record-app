@@ -1,15 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock dependencies
-const mockUpdateMemoryText = vi.fn()
+const mockGetMemory = vi.fn()
 
 vi.mock('@/lib/services/memory-service.js', () => ({
-  updateMemoryText: (...args) => mockUpdateMemoryText(...args),
-}))
-
-vi.mock('@/lib/validators.js', () => ({
-  validateBody: vi.fn((schema, body) => body),
-  memoryUpdateSchema: {},
+  getMemory: (...args) => mockGetMemory(...args),
 }))
 
 vi.mock('@/lib/prisma.js', () => ({
@@ -18,6 +13,8 @@ vi.mock('@/lib/prisma.js', () => ({
 
 vi.mock('@/lib/supabase.js', () => ({
   getSupabaseAdmin: vi.fn(),
+  getSupabaseAuthClient: vi.fn(),
+  getSupabaseAuthConfigStatus: vi.fn(() => ({ ok: true })),
 }))
 
 vi.mock('@/lib/rate-limit.js', () => ({
@@ -34,93 +31,45 @@ vi.mock('next/server', () => ({
   },
 }))
 
-function makeRequest({ method = 'PATCH', url = 'http://localhost/api/memories/m1', headers = {}, body } = {}) {
+function makeRequest({ method = 'GET', url = 'http://localhost/api/memories/m1', headers = {} } = {}) {
   const reqHeaders = new Headers(headers)
   return {
     method,
     url,
     headers: reqHeaders,
-    json: async () => body || {},
+    json: async () => ({}),
   }
 }
 
-describe('PATCH /api/memories/[id]', () => {
+describe('GET /api/memories/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.NODE_ENV = 'development'
     process.env.DEV_AUTH_BYPASS = 'true'
   })
 
-  it('updates memory text with valid text', async () => {
-    const updated = { id: 'm1', text: 'Updated memory text' }
-    mockUpdateMemoryText.mockResolvedValue(updated)
+  it('returns memory by id', async () => {
+    const memory = { id: 'm1', text: 'Test memory', userId: 'mock-user-001' }
+    mockGetMemory.mockResolvedValue(memory)
 
-    const { PATCH } = await import('@/app/api/memories/[id]/route.js')
-    const res = await PATCH(
-      makeRequest({
-        method: 'PATCH',
-        body: { text: 'Updated memory text' },
-      }),
+    const { GET } = await import('@/app/api/memories/[id]/route.js')
+    const res = await GET(
+      makeRequest(),
       { params: Promise.resolve({ id: 'm1' }) },
     )
 
     expect(res.status).toBe(200)
     expect(res._body.success).toBe(true)
-    expect(res._body.data.memory.text).toBe('Updated memory text')
-    expect(mockUpdateMemoryText).toHaveBeenCalledWith('mock-user-001', 'm1', 'Updated memory text')
-  })
-
-  it('returns 400 when text is empty string', async () => {
-    const { PATCH } = await import('@/app/api/memories/[id]/route.js')
-    const res = await PATCH(
-      makeRequest({
-        method: 'PATCH',
-        body: { text: '' },
-      }),
-      { params: Promise.resolve({ id: 'm1' }) },
-    )
-
-    expect(res.status).toBe(400)
-    expect(res._body.success).toBe(false)
-  })
-
-  it('returns 400 when text is whitespace only', async () => {
-    const { PATCH } = await import('@/app/api/memories/[id]/route.js')
-    const res = await PATCH(
-      makeRequest({
-        method: 'PATCH',
-        body: { text: '   ' },
-      }),
-      { params: Promise.resolve({ id: 'm1' }) },
-    )
-
-    expect(res.status).toBe(400)
-    expect(res._body.success).toBe(false)
-  })
-
-  it('returns 400 when text is missing', async () => {
-    const { PATCH } = await import('@/app/api/memories/[id]/route.js')
-    const res = await PATCH(
-      makeRequest({
-        method: 'PATCH',
-        body: {},
-      }),
-      { params: Promise.resolve({ id: 'm1' }) },
-    )
-
-    expect(res.status).toBe(400)
-    expect(res._body.success).toBe(false)
+    expect(res._body.data.memory.id).toBe('m1')
+    expect(mockGetMemory).toHaveBeenCalledWith('mock-user-001', 'm1')
   })
 
   it('returns 500 when service throws unexpected error', async () => {
-    mockUpdateMemoryText.mockRejectedValue(new Error('DB error'))
+    mockGetMemory.mockRejectedValue(new Error('DB error'))
 
-    const { PATCH } = await import('@/app/api/memories/[id]/route.js')
-    const res = await PATCH(
-      makeRequest({
-        method: 'PATCH',
-        body: { text: 'Valid text' },
-      }),
+    const { GET } = await import('@/app/api/memories/[id]/route.js')
+    const res = await GET(
+      makeRequest(),
       { params: Promise.resolve({ id: 'm1' }) },
     )
 

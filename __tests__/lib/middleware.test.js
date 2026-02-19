@@ -7,6 +7,8 @@ vi.mock('@/lib/prisma.js', () => ({
 
 vi.mock('@/lib/supabase.js', () => ({
   getSupabaseAdmin: vi.fn(),
+  getSupabaseAuthClient: vi.fn(),
+  getSupabaseAuthConfigStatus: vi.fn(() => ({ ok: true })),
 }))
 
 vi.mock('@/lib/rate-limit.js', () => ({
@@ -25,7 +27,7 @@ vi.mock('next/server', () => ({
 }))
 
 import { withApi } from '@/lib/middleware.js'
-import { getSupabaseAdmin } from '@/lib/supabase.js'
+import { getSupabaseAdmin, getSupabaseAuthClient } from '@/lib/supabase.js'
 import { checkRateLimit } from '@/lib/rate-limit.js'
 
 // Helper: minimal Request mock
@@ -102,7 +104,7 @@ describe('withApi middleware', () => {
       const originalEnv = { ...process.env }
       process.env.NODE_ENV = 'production'
       delete process.env.DEV_AUTH_BYPASS
-      getSupabaseAdmin.mockReturnValue({
+      getSupabaseAuthClient.mockReturnValue({
         auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: 'invalid' }) },
       })
 
@@ -120,7 +122,7 @@ describe('withApi middleware', () => {
       process.env.NODE_ENV = 'production'
       delete process.env.DEV_AUTH_BYPASS
       const mockUser = { id: 'user-uuid-123' }
-      getSupabaseAdmin.mockReturnValue({
+      getSupabaseAuthClient.mockReturnValue({
         auth: { getUser: vi.fn().mockResolvedValue({ data: { user: mockUser }, error: null }) },
       })
 
@@ -144,7 +146,7 @@ describe('withApi middleware', () => {
       const originalEnv = { ...process.env }
       process.env.NODE_ENV = 'production'
       delete process.env.DEV_AUTH_BYPASS
-      getSupabaseAdmin.mockReturnValue({
+      getSupabaseAuthClient.mockReturnValue({
         auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: 'expired' }) },
       })
 

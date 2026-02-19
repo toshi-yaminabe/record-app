@@ -16,6 +16,9 @@ vi.mock('@/lib/prisma.js', () => ({
       upsert: (...args) => mockSegmentUpsert(...args),
       findMany: (...args) => mockSegmentFindMany(...args),
     },
+    publishedVersion: {
+      findFirst: vi.fn().mockResolvedValue(null),
+    },
   },
 }))
 
@@ -25,6 +28,8 @@ vi.mock('@/lib/gemini.js', () => ({
 
 vi.mock('@/lib/supabase.js', () => ({
   getSupabaseAdmin: vi.fn(),
+  getSupabaseAuthClient: vi.fn(),
+  getSupabaseAuthConfigStatus: vi.fn(() => ({ ok: true })),
 }))
 
 vi.mock('@/lib/rate-limit.js', () => ({
