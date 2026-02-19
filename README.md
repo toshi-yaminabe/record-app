@@ -137,6 +137,10 @@ npm run lint
   - これらは参考用途で、現在のプロジェクト要件ではありません
   - 実装時期は別途調整が必要です
 
+## UI / Design Docs
+
+- `docs/ui-concept-bunjin-visual-signature.md` - 分人識別を強化するUIコンセプト（アプリ/WEB共通）
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

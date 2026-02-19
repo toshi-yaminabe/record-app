@@ -36,13 +36,32 @@
 
 .bunjin-card {
   background: var(--bg-card-hover);
-  border: 2px solid var(--card-color, var(--border-color));
+  border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 1rem;
-  text-align: center;
+  padding: 0.85rem 0.85rem 0.85rem 0;
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bunjin-card-ribbon {
+  width: 5px;
+  align-self: stretch;
+  border-radius: 0 4px 4px 0;
+  background: var(--card-color, var(--accent-purple));
+}
+
+.bunjin-card-main {
+  min-width: 0;
+}
+
+.bunjin-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
 }
 
 .bunjin-card:hover {
@@ -58,6 +77,12 @@
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.bunjin-caption {
+  margin-top: 0.2rem;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
 }
 
 .btn-delete {
@@ -102,9 +127,9 @@
 
 .btn-create {
   padding: 0.5rem 1.5rem;
-  background: var(--accent-purple);
-  color: white;
-  border: none;
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
   border-radius: 8px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -114,7 +139,7 @@
 
 .btn-create:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(156, 39, 176, 0.4);
+  box-shadow: 0 6px 14px rgba(99, 102, 241, 0.16);
 }
 
 .bunjin-detail-section {
