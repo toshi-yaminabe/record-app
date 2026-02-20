@@ -9,10 +9,8 @@ import '../../core/transcribe_mode.dart';
 
 /// 文字起こしサービス
 ///
-/// 新フロー: Storage直接アップロード + Edge Function process-audio
-/// 1. POST /api/segments でPENDINGセグメント作成
-/// 2. Supabase Storageに音声ファイルアップロード
-/// 3. Edge Function process-audio を invoke
+/// フロー: multipart POST /api/transcribe
+/// 音声ファイルと各種パラメータを送信してSTTを実行
 ///
 /// ServerEngine が委任先として使用する。
 class TranscribeService {
@@ -21,8 +19,7 @@ class TranscribeService {
   TranscribeService({required this.baseUrl});
 
   /// 音声ファイルを送信して文字起こし
-  /// Auth有効時: Storage + Edge Function（新フロー）
-  /// Auth無効時: multipart POST（旧フロー、フォールバック）
+  /// multipart POST /api/transcribe を使用
   Future<TranscribeResult> transcribe({
     required String filePath,
     required String deviceId,
@@ -50,8 +47,6 @@ class TranscribeService {
       );
     }
 
-    // TODO: Storage + Edge Function フロー完成後に分岐を復活
-    // 現在はEdge Function未完成 + セッションID不整合のため旧フロー固定
     return _transcribeViaMultipart(
       file: file,
       deviceId: deviceId,
@@ -59,73 +54,6 @@ class TranscribeService {
       segmentNo: segmentNo,
       startAt: startAt,
       endAt: endAt,
-    );
-  }
-
-  /// 新フロー: Storage直接アップロード + Edge Function
-  Future<TranscribeResult> _transcribeViaStorage({
-    required File file,
-    required String sessionId,
-    required int segmentNo,
-    required DateTime startAt,
-    required DateTime endAt,
-  }) async {
-    final supabase = Supabase.instance.client;
-    final userId = supabase.auth.currentUser!.id;
-
-    AppLogger.api(
-        'transcribe: new flow sessionId=$sessionId segmentNo=$segmentNo');
-
-    // 1. PENDINGセグメント作成
-    final storagePath = '$userId/$sessionId/$segmentNo.m4a';
-    final segmentId = await _createPendingSegment(
-      sessionId: sessionId,
-      segmentNo: segmentNo,
-      startAt: startAt,
-      endAt: endAt,
-      storagePath: storagePath,
-    );
-
-    // 2. Supabase Storageにアップロード
-    AppLogger.api('storage: uploading $storagePath size=${file.lengthSync()}');
-    final fileBytes = await file.readAsBytes();
-    await supabase.storage
-        .from('audio-segments')
-        .uploadBinary(
-          storagePath,
-          fileBytes,
-          fileOptions: const FileOptions(
-            contentType: 'audio/mp4',
-            upsert: true,
-          ),
-        );
-    AppLogger.api('storage: upload complete $storagePath');
-
-    // 3. Edge Function process-audio を invoke
-    AppLogger.api('edge-function: invoking process-audio segmentId=$segmentId');
-    final efResponse = await supabase.functions.invoke(
-      'process-audio',
-      body: {
-        'segmentId': segmentId,
-        'storageObjectPath': storagePath,
-      },
-    );
-
-    if (efResponse.status != 200) {
-      final errorBody = efResponse.data is String
-          ? efResponse.data as String
-          : jsonEncode(efResponse.data);
-      throw TranscribeException(
-          'Edge Function失敗 (${efResponse.status}): $errorBody');
-    }
-
-    final result = efResponse.data as Map<String, dynamic>;
-    final text = result['text'] as String? ?? '';
-    AppLogger.api('edge-function: success text=${text.length}chars');
-
-    return TranscribeResult(
-      segmentId: segmentId,
-      text: text,
     );
   }
 
@@ -194,50 +122,6 @@ class TranscribeService {
       text: segment['text'] as String? ?? '',
       sessionId: segment['sessionId'] as String?,
     );
-  }
-
-  /// PENDINGセグメントをAPIで作成
-  Future<String> _createPendingSegment({
-    required String sessionId,
-    required int segmentNo,
-    required DateTime startAt,
-    required DateTime endAt,
-    required String storagePath,
-  }) async {
-    final session = Supabase.instance.client.auth.currentSession;
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
-    if (session != null) {
-      headers['Authorization'] = 'Bearer ${session.accessToken}';
-    }
-
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/segments'),
-      headers: headers,
-      body: jsonEncode({
-        'sessionId': sessionId,
-        'segmentNo': segmentNo,
-        'startAt': startAt.toIso8601String(),
-        'endAt': endAt.toIso8601String(),
-        'storageObjectPath': storagePath,
-      }),
-    ).timeout(const Duration(seconds: 30));
-
-    if (response.statusCode != 200) {
-      throw TranscribeException('セグメント作成失敗: ${response.body}');
-    }
-
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final success = json['success'] as bool? ?? false;
-    if (!success) {
-      throw TranscribeException(
-          'セグメント作成失敗: ${json['error'] ?? 'Unknown error'}');
-    }
-
-    final data = json['data'] as Map<String, dynamic>;
-    final segment = data['segment'] as Map<String, dynamic>;
-    return segment['id'] as String;
   }
 
   /// セグメント一覧を取得

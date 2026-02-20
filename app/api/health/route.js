@@ -27,6 +27,11 @@ export async function GET() {
 
     const ok = databaseOk && geminiOk
 
+    // 本番環境では内部状態を非公開にし、ok フラグのみ返す
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ success: true, data: { ok } })
+    }
+
     return NextResponse.json({
       success: true,
       data: { ok, database: databaseOk, gemini: geminiOk, version },

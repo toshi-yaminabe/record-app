@@ -1,7 +1,7 @@
 # record-app ナレッジ資料
 
-**最終更新:** 2026-02-19
-**バージョン:** Web v2.0.0-beta.12 (package.json) / Flutter v2.0.0-beta.12+13 (pubspec.yaml)
+**最終更新:** 2026-02-20
+**バージョン:** Web v2.0.0-beta.13 (package.json) / Flutter v2.0.0-beta.13+14 (pubspec.yaml)
 
 ---
 
@@ -111,7 +111,7 @@ record-app/
 │       └── services/             # 録音・文字起こし・オフライン
 ├── next.config.mjs               # Next.js設定 (ESM, bodySizeLimit: 10mb, セキュリティヘッダー6種)
 ├── vercel.json                   # Vercel関数設定 (transcribe/proposals: 60s)
-└── package.json                  # v2.0.0-beta.12
+└── package.json                  # v2.0.0-beta.13
 ```
 
 ### 技術スタック
@@ -838,15 +838,17 @@ flowchart LR
 > 詳細な課題管理・対応履歴は [GitHub Issues](https://github.com/toshi-yaminabe/record-app/issues) で管理。
 > ローカル参照: **ISSUES.md** (アクティブ課題のサマリーのみ + UXコンテキスト)。
 
-### 現在のオープンIssue（2026-02-19 設計整合性監査で起票）
+### 現在のオープンIssue（2026-02-20 v2.0.0-beta.13時点）
 
-| Issue | Severity | 概要 |
-|-------|----------|------|
-| #58 | CRITICAL | Proposal-bunjin リレーション不在（DBマイグレーション必要） |
-| #59 | CRITICAL | E1-E5 UXフロー未実装（ガイド付きUI設計必要） |
-| #60 | HIGH | 分人Flutter/Webシグネチャ同期（形/パターン未対応） |
-| #61 | MEDIUM | CSPヘッダー未設定、DEV_AUTH_BYPASSフォールバック冗長、他 |
-| #62 | LOW | maskSensitiveMeta浅いマスク、rule-tree-service O(n) shift、他 |
+現在アクティブなオープンIssueはありません。#28〜#62は全てCLOSED。
+
+### 解決済み（v2.0.0-beta.13 設計整合性監査バッチ）
+
+- ~~#58 Proposal-bunjin リレーション~~ (CLOSED)
+- ~~#59 E1-E5 UXフロー~~ (CLOSED)
+- ~~#60 分人Flutter/Webシグネチャ同期~~ (CLOSED)
+- ~~#61 CSPヘッダー/DEV_AUTH_BYPASS/音声削除~~ (CLOSED)
+- ~~#62 maskSensitiveMeta/O(n) shift/useEffect deps~~ (CLOSED)
 
 ### 解決済み（v2.0.0-beta.6 パイプライン復旧）
 

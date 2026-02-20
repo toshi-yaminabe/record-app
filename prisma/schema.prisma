@@ -47,6 +47,7 @@ model Bunjin {
   segments  Segment[]
   tasks     Task[]
   memories  Memory[]
+  proposals Proposal[]
 
   @@unique([userId, slug])
   @@index([userId])
@@ -163,13 +164,16 @@ model Proposal {
   title     String
   body      String   @default("")
   status    String   @default("PENDING") // "PENDING" | "CONFIRMED" | "REJECTED"
+  bunjinId  String?  @map("bunjin_id") // 提案に関連する分人ID（任意）
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
+  bunjin           Bunjin?          @relation(fields: [bunjinId], references: [id], onDelete: SetNull)
   weeklyExecutions WeeklyExecution[]
 
   @@index([userId])
   @@index([dateKey])
+  @@index([bunjinId])
   @@map("proposals")
 }
 

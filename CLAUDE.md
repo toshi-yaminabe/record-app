@@ -16,7 +16,7 @@ record-app/
 ├── KNOWLEDGE.md              ← 詳細ナレッジ（DB設計、API仕様、フロー図、ER図）
 ├── ISSUES.md                 ← 課題管理（CRITICAL〜LOWの起票・完了追跡）
 ├── .env.example              ← 環境変数テンプレート
-├── package.json              ← v1.4.1, dependencies一覧
+├── package.json              ← v2.0.0-beta.13, dependencies一覧
 ├── next.config.mjs           ← Next.js設定（ESM, bodySizeLimit: 10mb）
 ├── vercel.json               ← Vercel関数タイムアウト（transcribe/proposals: 60s）
 ├── jsconfig.json             ← パスエイリアス設定

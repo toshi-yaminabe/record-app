@@ -1,0 +1,192 @@
+{
+  "version": 1,
+  "scope": "project:record-app",
+  "generated_at": "2026-02-20T01:23:48.490Z",
+  "stats": {
+    "nodes": 8,
+    "edges": 8
+  },
+  "nodes": [
+    {
+      "id": "memory:MEMORY",
+      "type": "memory",
+      "props": {
+        "name": "MEMORY",
+        "path": "../apps/record-app/.claude/memory/MEMORY.md",
+        "title": "record-app Project Memory"
+      },
+      "source": "scan"
+    },
+    {
+      "id": "knowledge:api-surface",
+      "type": "knowledge",
+      "props": {
+        "name": "api-surface",
+        "path": "../apps/record-app/.claude/knowledge/api-surface.md",
+        "title": "API仕様・環境変数・外部依存",
+        "tags": [
+          "api",
+          "endpoints",
+          "environment",
+          "external-services"
+        ],
+        "keywords": [
+          "エンドポイント",
+          "環境変数",
+          "Gemini",
+          "Neon",
+          "Vercel",
+          "STT",
+          "文字起こし",
+          "提案",
+          "transcribe",
+          "proposals",
+          "sessions"
+        ]
+      },
+      "source": "scan"
+    },
+    {
+      "id": "knowledge:data-model",
+      "type": "knowledge",
+      "props": {
+        "name": "data-model",
+        "path": "../apps/record-app/.claude/knowledge/data-model.md",
+        "title": "データベース設計",
+        "tags": [
+          "database",
+          "prisma",
+          "schema",
+          "models"
+        ],
+        "keywords": [
+          "モデル",
+          "テーブル",
+          "リレーション",
+          "状態遷移",
+          "ER図",
+          "セグメント",
+          "タスク",
+          "分人",
+          "bunjin",
+          "segment",
+          "task",
+          "proposal"
+        ]
+      },
+      "source": "scan"
+    },
+    {
+      "id": "knowledge:overview",
+      "type": "knowledge",
+      "props": {
+        "name": "overview",
+        "path": "../apps/record-app/.claude/knowledge/overview.md",
+        "title": "record-app 概要",
+        "tags": [
+          "architecture",
+          "nextjs",
+          "flutter",
+          "prisma",
+          "design"
+        ],
+        "keywords": [
+          "分人",
+          "dividual",
+          "アーキテクチャ",
+          "設計",
+          "スタック",
+          "bunjin",
+          "vercel",
+          "neon",
+          "gemini"
+        ]
+      },
+      "source": "scan"
+    },
+    {
+      "id": "doc:flutter-build-fix",
+      "type": "doc",
+      "props": {
+        "name": "flutter-build-fix",
+        "path": "../apps/record-app/docs/ai-workspace/flutter-build-fix.md",
+        "title": "Flutter Android APK ビルド修正手順"
+      },
+      "source": "scan"
+    },
+    {
+      "id": "doc:audio-save-root-cause-investigation",
+      "type": "doc",
+      "props": {
+        "name": "audio-save-root-cause-investigation",
+        "path": "../apps/record-app/docs/audio-save-root-cause-investigation.md",
+        "title": "音声保存失敗の根本原因調査（2026-02-16）"
+      },
+      "source": "scan"
+    },
+    {
+      "id": "doc:DEPLOYMENT",
+      "type": "doc",
+      "props": {
+        "name": "DEPLOYMENT",
+        "path": "../apps/record-app/docs/DEPLOYMENT.md",
+        "title": "Deployment Guide"
+      },
+      "source": "scan"
+    },
+    {
+      "id": "doc:ui-concept-bunjin-visual-signature",
+      "type": "doc",
+      "props": {
+        "name": "ui-concept-bunjin-visual-signature",
+        "path": "../apps/record-app/docs/ui-concept-bunjin-visual-signature.md",
+        "title": "UIコンセプト登録: 分人識別の強化（アプリ/WEB共通）"
+      },
+      "source": "scan"
+    }
+  ],
+  "edges": [
+    {
+      "source": "knowledge:api-surface",
+      "target": "knowledge:overview",
+      "type": "REFERENCES"
+    },
+    {
+      "source": "knowledge:api-surface",
+      "target": "knowledge:data-model",
+      "type": "REFERENCES"
+    },
+    {
+      "source": "knowledge:data-model",
+      "target": "knowledge:overview",
+      "type": "REFERENCES"
+    },
+    {
+      "source": "knowledge:data-model",
+      "target": "knowledge:api-surface",
+      "type": "REFERENCES"
+    },
+    {
+      "source": "knowledge:overview",
+      "target": "knowledge:data-model",
+      "type": "REFERENCES"
+    },
+    {
+      "source": "knowledge:overview",
+      "target": "knowledge:api-surface",
+      "type": "REFERENCES"
+    },
+    {
+      "source": "knowledge:api-surface",
+      "target": "knowledge:overview",
+      "type": "PART_OF",
+      "source_tag": "scan"
+    },
+    {
+      "source": "knowledge:data-model",
+      "target": "knowledge:overview",
+      "type": "PART_OF",
+      "source_tag": "scan"
+    }
+  ]
+}

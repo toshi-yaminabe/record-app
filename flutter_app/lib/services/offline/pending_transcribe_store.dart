@@ -5,14 +5,13 @@ import '../../data/local/unified_queue_database.dart';
 
 /// 文字起こしリトライ専用ストア
 ///
-/// 状態遷移: pending(ローカル) → uploaded(Storage済) → processed(STT済)
-/// オフライン復帰時: uploaded済はEF呼び出しのみ、pending済はStorage upload + EF
+/// 状態遷移: pending(ローカル) → processed(STT済)
 class PendingTranscribeStore extends BaseQueueDB {
   @override
   String get tableName => 'pending_transcribes';
 
   @override
-  List<String> get pendingStatuses => const ['pending', 'uploaded'];
+  List<String> get pendingStatuses => const ['pending'];
 
   @override
   Future<Database> get database => UnifiedQueueDatabase.instance;
@@ -49,34 +48,13 @@ class PendingTranscribeStore extends BaseQueueDB {
     }
   }
 
-  /// Storage uploadedとしてマーク
-  Future<void> markUploaded(int id, String storageObjectPath) async {
-    try {
-      final db = await database;
-      await db.update(
-        tableName,
-        {
-          'storage_object_path': storageObjectPath,
-          'status': 'uploaded',
-        },
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      AppLogger.db(
-          'pending_transcribe: uploaded id=$id path=$storageObjectPath');
-    } on DatabaseException catch (e, stack) {
-      AppLogger.db('pending_transcribe: markUploaded failed for id=$id',
-          error: e, stack: stack);
-    }
-  }
-
   /// pending状態のエントリ一覧を取得
   Future<List<PendingTranscribeEntry>> listPending() async {
     try {
       final db = await database;
       final maps = await db.query(
         tableName,
-        where: "status IN ('pending', 'uploaded')",
+        where: "status = 'pending'",
         orderBy: 'created_at ASC',
       );
       return maps.map((m) => PendingTranscribeEntry.fromMap(m)).toList();

@@ -7,14 +7,12 @@ import { withApi } from '@/lib/middleware.js'
 import { AppError, ValidationError } from '@/lib/errors.js'
 import { transcribeSegment } from '@/lib/services/transcribe-service.js'
 import { listSegments } from '@/lib/services/segment-service.js'
-
-const MAX_AUDIO_SIZE = 6 * 1024 * 1024 // 6MB
-const ALLOWED_MIME = ['audio/mp4', 'audio/mpeg', 'audio/m4a', 'audio/aac', 'audio/wav']
+import { MAX_AUDIO_SIZE_BYTES, ALLOWED_AUDIO_MIME_TYPES } from '@/lib/constants.js'
 
 export const POST = withApi(async (request, { userId }) => {
   // Content-Lengthで早期にファイルサイズ超過を検出
   const contentLength = parseInt(request.headers.get('content-length') || '0', 10)
-  if (contentLength > MAX_AUDIO_SIZE) {
+  if (contentLength > MAX_AUDIO_SIZE_BYTES) {
     throw new AppError('Audio file too large (max 6MB)', 413)
   }
 
@@ -30,10 +28,10 @@ export const POST = withApi(async (request, { userId }) => {
     throw new ValidationError('Missing required fields: audio, deviceId, sessionId')
   }
 
-  if (audioFile.size > MAX_AUDIO_SIZE) {
+  if (audioFile.size > MAX_AUDIO_SIZE_BYTES) {
     throw new AppError('Audio file too large (max 6MB)', 413)
   }
-  if (audioFile.type && !ALLOWED_MIME.includes(audioFile.type)) {
+  if (audioFile.type && !ALLOWED_AUDIO_MIME_TYPES.includes(audioFile.type)) {
     throw new AppError('Unsupported audio format', 415)
   }
 
