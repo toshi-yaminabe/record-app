@@ -22,10 +22,13 @@
 
 ---
 
-## アクティブ課題
+## HIGH
 
-現在アクティブなCRITICAL/HIGH/MEDIUM/LOW課題はありません。
+- **#63** セグメント→分人自動割当 — RuleTree評価エンジン未実装。STT完了後にセグメントへのbunjinId自動セットが必要
+- **#64** sessionId整合性 — Flutter UUID vs サーバー生成ID の不一致。`transcribe-service.js` がFlutter送信sessionIdを無視
 
-v2.0.0-beta.13時点でGitHub Issues #28〜#62は全てCLOSED。
+## MEDIUM
 
-<!-- sync: 2026-02-20T00:00:00Z -->
+- **#65** Flutterオフラインキュー一意制約 — `pending_transcribes` に `(session_id, segment_no)` UNIQUE制約なし、重複蓄積リスク
+
+<!-- sync: 2026-02-20T12:00:00Z -->
