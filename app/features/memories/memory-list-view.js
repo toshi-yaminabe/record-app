@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useApi } from '../../hooks/use-api'
 import { LoadingSkeleton } from '../../components/loading-skeleton'
 import { logger } from '@/lib/logger.js'
@@ -12,18 +12,18 @@ export function MemoryListView() {
   const [newContent, setNewContent] = useState('')
   const [adding, setAdding] = useState(false)
 
-  useEffect(() => {
-    fetchMemories()
-  }, [])
-
-  const fetchMemories = async () => {
+  const fetchMemories = useCallback(async () => {
     try {
       const data = await fetchApi('/api/memories')
       setMemories(data.memories || [])
     } catch (err) {
       logger.error('Failed to fetch memories', { error: err.message })
     }
-  }
+  }, [fetchApi])
+
+  useEffect(() => {
+    fetchMemories()
+  }, [fetchMemories])
 
   const handleAdd = async () => {
     if (!newContent.trim()) return
@@ -31,7 +31,7 @@ export function MemoryListView() {
       setAdding(true)
       const data = await fetchApi('/api/memories', {
         method: 'POST',
-        body: JSON.stringify({ content: newContent.trim() }),
+        body: JSON.stringify({ text: newContent.trim() }),
       })
       setMemories(prev => [data.memory, ...prev])
       setNewContent('')
@@ -83,9 +83,12 @@ export function MemoryListView() {
                 <span className="memory-date">
                   {new Date(memory.createdAt).toLocaleDateString('ja-JP')}
                 </span>
+                {memory.sourceRefs && memory.sourceRefs !== '[]' && (
+                  <span className="memory-source-badge">提案から自動学習</span>
+                )}
               </div>
               <div className="memory-content">
-                <p className="memory-text">{memory.content}</p>
+                <p className="memory-text">{memory.text}</p>
               </div>
             </div>
           ))}

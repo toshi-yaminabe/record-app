@@ -36,7 +36,7 @@ class UnifiedQueueDatabase {
 
     return await openDatabase(
       path,
-      version: 2,
+      version: 3,
       password: _password,
       onCreate: (db, version) async {
         AppLogger.db('UnifiedQueueDatabase: creating tables (v$version)');
@@ -67,7 +67,8 @@ class UnifiedQueueDatabase {
             storage_object_path TEXT,
             retry_count INTEGER DEFAULT 0,
             status TEXT DEFAULT 'pending',
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            UNIQUE(session_id, segment_no)
           )
         ''');
 
@@ -81,7 +82,34 @@ class UnifiedQueueDatabase {
         if (oldVersion < 2) {
           await _createLocalTranscriptsTable(db);
         }
+        if (oldVersion < 3) {
+          await _addPendingTranscribesUniqueIndex(db);
+        }
       },
+    );
+  }
+
+  /// v3: pending_transcribes に (session_id, segment_no) 一意制約を追加
+  /// 既存の重複データがある場合は最新のみ保持して解消する
+  static Future<void> _addPendingTranscribesUniqueIndex(Database db) async {
+    // 重複解消: 同一(session_id, segment_no)で最新のrowid以外を削除
+    await db.execute('''
+      DELETE FROM pending_transcribes
+      WHERE rowid NOT IN (
+        SELECT MAX(rowid) FROM pending_transcribes
+        GROUP BY session_id, segment_no
+      )
+    ''');
+    AppLogger.db(
+      'UnifiedQueueDatabase: resolved duplicate pending_transcribes entries',
+    );
+
+    await db.execute('''
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_transcribes_session_segment
+      ON pending_transcribes (session_id, segment_no)
+    ''');
+    AppLogger.db(
+      'UnifiedQueueDatabase: added UNIQUE index on pending_transcribes(session_id, segment_no)',
     );
   }
 

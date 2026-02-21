@@ -28,18 +28,22 @@ class PendingTranscribeStore extends BaseQueueDB {
   }) async {
     try {
       final db = await database;
-      final id = await db.insert(tableName, {
-        'file_path': filePath,
-        'device_id': deviceId,
-        'session_id': sessionId,
-        'segment_no': segmentNo,
-        'start_at': startAt.toIso8601String(),
-        'end_at': endAt.toIso8601String(),
-        'storage_object_path': storageObjectPath,
-        'retry_count': 0,
-        'status': 'pending',
-        'created_at': DateTime.now().toUtc().toIso8601String(),
-      });
+      final id = await db.insert(
+        tableName,
+        {
+          'file_path': filePath,
+          'device_id': deviceId,
+          'session_id': sessionId,
+          'segment_no': segmentNo,
+          'start_at': startAt.toIso8601String(),
+          'end_at': endAt.toIso8601String(),
+          'storage_object_path': storageObjectPath,
+          'retry_count': 0,
+          'status': 'pending',
+          'created_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
       AppLogger.db('pending_transcribe: added id=$id filePath=$filePath');
       return id;
     } on DatabaseException catch (e, stack) {

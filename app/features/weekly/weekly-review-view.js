@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useApi } from '../../hooks/use-api'
 import { LoadingSkeleton } from '../../components/loading-skeleton'
 import './weekly.css'
@@ -19,13 +19,17 @@ export function WeeklyReviewView() {
   const [weekKey] = useState(() => getCurrentWeekKey())
   const [reviewData, setReviewData] = useState(null)
 
-  useEffect(() => {
+  const loadReview = useCallback(() => {
     fetchApi(`/api/weekly-review?weekKey=${weekKey}`)
       .then(data => setReviewData(data))
       .catch(() => setReviewData(null))
-  }, [weekKey])
+  }, [fetchApi, weekKey])
 
-  const confirmedProposals = reviewData?.proposals?.filter(p => p.status === 'CONFIRMED') ?? []
+  useEffect(() => {
+    loadReview()
+  }, [loadReview])
+
+  const executions = reviewData?.executions ?? []
 
   return (
     <section className="weekly-review-view">
@@ -36,7 +40,7 @@ export function WeeklyReviewView() {
 
       {loading && <LoadingSkeleton rows={4} />}
 
-      {!loading && confirmedProposals.length === 0 && (
+      {!loading && executions.length === 0 && (
         <div className="empty-state">
           <span className="empty-icon">📅</span>
           <p>今週確定した提案がありません</p>
@@ -44,22 +48,28 @@ export function WeeklyReviewView() {
         </div>
       )}
 
-      {!loading && confirmedProposals.length > 0 && (
+      {!loading && executions.length > 0 && (
         <div className="weekly-summary">
           <div className="summary-stats">
             <div className="stat-card">
-              <span className="stat-value">{confirmedProposals.length}</span>
-              <span className="stat-label">確定済み提案</span>
+              <span className="stat-value">{executions.length}</span>
+              <span className="stat-label">実行済み提案</span>
             </div>
           </div>
           <div className="confirmed-list">
-            {confirmedProposals.map(proposal => (
-              <div key={proposal.id} className="confirmed-item">
-                <div className="confirmed-date">
-                  {new Date(proposal.createdAt).toLocaleDateString('ja-JP')}
+            {executions.map(exec => (
+              <div key={exec.id} className="confirmed-item">
+                <div className="confirmed-meta">
+                  <span className="execution-date">
+                    {new Date(exec.createdAt).toLocaleDateString('ja-JP')}
+                  </span>
+                  <span className="execution-badge">実行済み</span>
                 </div>
-                <h3 className="confirmed-title">{proposal.title}</h3>
-                <p className="confirmed-body">{proposal.body}</p>
+                <h3 className="confirmed-title">{exec.proposal?.title}</h3>
+                <p className="confirmed-body">{exec.proposal?.body}</p>
+                {exec.note && (
+                  <p className="execution-note">メモ: {exec.note}</p>
+                )}
               </div>
             ))}
           </div>

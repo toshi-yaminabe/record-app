@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTasks } from '../../hooks/use-tasks'
 import { useBunjins } from '../../hooks/use-bunjins'
 import { TaskItem } from './task-item'
@@ -12,10 +12,14 @@ export function TaskListView() {
   const { bunjins, fetchBunjins } = useBunjins()
   const [selectedBunjinId, setSelectedBunjinId] = useState('')
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     fetchTasks({ bunjinId: selectedBunjinId || undefined })
     fetchBunjins()
-  }, [selectedBunjinId])
+  }, [fetchTasks, fetchBunjins, selectedBunjinId])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const handleStatusChange = async (taskId, newStatus) => {
     await updateTaskStatus(taskId, newStatus)

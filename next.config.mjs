@@ -19,7 +19,10 @@ const SECURITY_HEADERS = [
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
       "font-src 'self'",
       "frame-ancestors 'none'",
-    ].join('; '),
+      "base-uri 'self'",
+      "form-action 'self'",
+      isDev ? '' : 'upgrade-insecure-requests',
+    ].filter(Boolean).join('; '),
   },
 ]
 

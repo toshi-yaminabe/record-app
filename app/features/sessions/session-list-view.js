@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useApi } from '../../hooks/use-api'
 import { LoadingSkeleton } from '../../components/loading-skeleton'
 import { logger } from '@/lib/logger.js'
@@ -10,18 +10,18 @@ export function SessionListView() {
   const { fetchApi, loading } = useApi()
   const [sessions, setSessions] = useState([])
 
-  useEffect(() => {
-    fetchSessions()
-  }, [])
-
-  const fetchSessions = async () => {
+  const fetchSessions = useCallback(async () => {
     try {
       const data = await fetchApi('/api/sessions')
       setSessions(data.sessions || [])
     } catch (err) {
       logger.error('Failed to fetch sessions', { error: err.message })
     }
-  }
+  }, [fetchApi])
+
+  useEffect(() => {
+    fetchSessions()
+  }, [fetchSessions])
 
   return (
     <section className="session-list-view">

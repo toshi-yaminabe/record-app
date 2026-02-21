@@ -2,8 +2,8 @@
  * セグメントAPI - 詳細取得・STTステータス更新
  */
 
-import { withApi } from '@/lib/middleware'
-import { getSegment, updateSegmentSttStatus } from '@/lib/services/segment-service'
+import { withApi } from '@/lib/middleware.js'
+import { getSegment, updateSegmentSttStatus } from '@/lib/services/segment-service.js'
 import { validateBody, segmentUpdateSchema } from '@/lib/validators.js'
 
 /**
