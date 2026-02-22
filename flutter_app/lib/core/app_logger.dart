@@ -13,14 +13,19 @@ class AppLogger {
 
   /// 起動時に呼び出し — ログファイルを初期化
   static Future<void> init({PackageInfo? packageInfo}) async {
-    final dir = await getApplicationDocumentsDirectory();
-    _logFile = File('${dir.path}/debug.log');
-    final versionSuffix = packageInfo != null
-        ? ' v${packageInfo.version}+${packageInfo.buildNumber}'
-        : '';
-    await _logFile!.writeAsString(
-      '=== record-app$versionSuffix debug log: ${DateTime.now().toIso8601String()} ===\n',
-    );
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      _logFile = File('${dir.path}/debug.log');
+      final versionSuffix = packageInfo != null
+          ? ' v${packageInfo.version}+${packageInfo.buildNumber}'
+          : '';
+      await _logFile!.writeAsString(
+        '=== record-app$versionSuffix debug log: ${DateTime.now().toIso8601String()} ===\n',
+      );
+    } catch (e) {
+      developer.log('AppLogger file init failed: $e', name: 'record-app');
+      _logFile = null;
+    }
   }
 
   static void api(String message, {Object? error, StackTrace? stack}) =>

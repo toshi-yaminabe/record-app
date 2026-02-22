@@ -81,7 +81,11 @@ Future<void> _initializeAndRunApp() async {
   } catch (e) {
     developer.log('PackageInfo unavailable: $e', name: 'record-app');
   }
-  await AppLogger.init(packageInfo: packageInfo);
+  try {
+    await AppLogger.init(packageInfo: packageInfo);
+  } catch (e) {
+    developer.log('AppLogger init failed: $e', name: 'record-app');
+  }
   if (packageInfo != null) {
     AppLogger.lifecycle(
       'app version=${packageInfo.version} '
@@ -105,11 +109,15 @@ Future<void> _initializeAndRunApp() async {
 
   // Supabase初期化
   if (SupabaseConfig.url.isNotEmpty && SupabaseConfig.anonKey.isNotEmpty) {
-    await Supabase.initialize(
-      url: SupabaseConfig.url,
-      anonKey: SupabaseConfig.anonKey,
-    );
-    AppLogger.lifecycle('supabase: initialized url=${SupabaseConfig.url}');
+    try {
+      await Supabase.initialize(
+        url: SupabaseConfig.url,
+        anonKey: SupabaseConfig.anonKey,
+      );
+      AppLogger.lifecycle('supabase: initialized url=${SupabaseConfig.url}');
+    } catch (e) {
+      AppLogger.lifecycle('WARNING: Supabase init failed: $e');
+    }
   } else {
     AppLogger.lifecycle(
       'WARNING: SUPABASE_URL or SUPABASE_ANON_KEY is empty. '
@@ -118,15 +126,24 @@ Future<void> _initializeAndRunApp() async {
   }
 
   // deviceIdを事前解決（起動時に1回だけ）
-  final deviceId = await DeviceIdService.getOrCreate();
+  String deviceId = 'unknown';
+  try {
+    deviceId = await DeviceIdService.getOrCreate();
+  } catch (e) {
+    AppLogger.lifecycle('WARNING: DeviceId init failed: $e');
+  }
   AppLogger.lifecycle('app starting: deviceId=$deviceId');
 
   // recordings dirパスをSharedPreferencesにキャッシュ
-  final docDir = await getApplicationDocumentsDirectory();
-  final recordingsDir = p.join(docDir.path, 'recordings');
-  final prefs = await SharedPreferences.getInstance();
-  await prefs.setString('recordings_dir', recordingsDir);
-  AppLogger.lifecycle('recordingsDir=$recordingsDir');
+  try {
+    final docDir = await getApplicationDocumentsDirectory();
+    final recordingsDir = p.join(docDir.path, 'recordings');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('recordings_dir', recordingsDir);
+    AppLogger.lifecycle('recordingsDir=$recordingsDir');
+  } catch (e) {
+    AppLogger.lifecycle('WARNING: recordings dir setup failed: $e');
+  }
   AppLogger.lifecycle(
       'baseUrl=${ApiConfig.baseUrl.isEmpty ? "(empty)" : ApiConfig.baseUrl}');
 
@@ -211,7 +228,11 @@ Future<void> _initializeAndRunApp() async {
     transcribeRetryService: transcribeRetryService,
     localTranscribeSyncService: localTranscribeSyncService,
   );
-  connectivityMonitor.startMonitoring();
+  try {
+    connectivityMonitor.startMonitoring();
+  } catch (e, st) {
+    AppLogger.lifecycle('WARNING: connectivity monitoring failed: $e\n$st');
+  }
 
   runApp(ProviderScope(
     overrides: [
