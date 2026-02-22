@@ -1,9 +1,9 @@
 {
   "version": 1,
   "scope": "project:record-app",
-  "generated_at": "2026-02-20T01:23:48.490Z",
+  "generated_at": "2026-02-22T14:56:57.816Z",
   "stats": {
-    "nodes": 8,
+    "nodes": 10,
     "edges": 8
   },
   "nodes": [
@@ -131,6 +131,26 @@
         "name": "DEPLOYMENT",
         "path": "../apps/record-app/docs/DEPLOYMENT.md",
         "title": "Deployment Guide"
+      },
+      "source": "scan"
+    },
+    {
+      "id": "doc:evaluation-rubric",
+      "type": "doc",
+      "props": {
+        "name": "evaluation-rubric",
+        "path": "../apps/record-app/docs/evaluation-rubric.md",
+        "title": "record-app 改善評価ルーブリック (100点満点)"
+      },
+      "source": "scan"
+    },
+    {
+      "id": "doc:stt-design-compatibility-report",
+      "type": "doc",
+      "props": {
+        "name": "stt-design-compatibility-report",
+        "path": "../apps/record-app/docs/stt-design-compatibility-report.md",
+        "title": "STT設計適合性 調査レポート"
       },
       "source": "scan"
     },
