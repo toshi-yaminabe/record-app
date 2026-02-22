@@ -75,13 +75,22 @@ Future<void> main() async {
 
 Future<void> _initializeAndRunApp() async {
   // === Block 1: コア初期化 ===
-  final packageInfo = await PackageInfo.fromPlatform();
+  PackageInfo? packageInfo;
+  try {
+    packageInfo = await PackageInfo.fromPlatform();
+  } catch (e) {
+    developer.log('PackageInfo unavailable: $e', name: 'record-app');
+  }
   await AppLogger.init(packageInfo: packageInfo);
-  AppLogger.lifecycle(
-    'app version=${packageInfo.version} '
-    'build=${packageInfo.buildNumber} '
-    'package=${packageInfo.packageName}',
-  );
+  if (packageInfo != null) {
+    AppLogger.lifecycle(
+      'app version=${packageInfo.version} '
+      'build=${packageInfo.buildNumber} '
+      'package=${packageInfo.packageName}',
+    );
+  } else {
+    AppLogger.lifecycle('app version=unknown (PackageInfo unavailable)');
+  }
 
   // H2: baseUrlが空の場合はアプリ起動をブロック
   if (ApiConfig.baseUrl.isEmpty) {

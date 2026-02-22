@@ -32,10 +32,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _loadVersion() async {
-    final info = await PackageInfo.fromPlatform();
-    setState(() {
-      _appVersion = '${info.version}+${info.buildNumber}';
-    });
+    try {
+      final info = await PackageInfo.fromPlatform();
+      setState(() {
+        _appVersion = '${info.version}+${info.buildNumber}';
+      });
+    } catch (e) {
+      setState(() {
+        _appVersion = 'unknown';
+      });
+    }
   }
 
   Future<void> _loadCounts() async {
