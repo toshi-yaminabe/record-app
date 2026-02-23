@@ -61,24 +61,35 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
 
     // 認証状態の変化を監視
-    _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
-      final event = data.event;
-      final session = data.session;
+    _authSubscription = supabase.auth.onAuthStateChange.listen(
+      (data) {
+        try {
+          final event = data.event;
+          final session = data.session;
 
-      AppLogger.lifecycle('auth: event=$event user=${session?.user.email}');
+          AppLogger.lifecycle('auth: event=$event user=${session?.user.email}');
 
-      switch (event) {
-        case AuthChangeEvent.signedIn:
-        case AuthChangeEvent.tokenRefreshed:
-          state = AuthState(user: session?.user);
-        case AuthChangeEvent.signedOut:
-          state = const AuthState();
-        case AuthChangeEvent.userUpdated:
-          state = AuthState(user: session?.user);
-        default:
-          break;
-      }
-    });
+          switch (event) {
+            case AuthChangeEvent.signedIn:
+            case AuthChangeEvent.tokenRefreshed:
+              state = AuthState(user: session?.user);
+            case AuthChangeEvent.signedOut:
+              state = const AuthState();
+            case AuthChangeEvent.userUpdated:
+              state = AuthState(user: session?.user);
+            default:
+              break;
+          }
+        } catch (e) {
+          AppLogger.lifecycle('auth: listener error', error: e);
+          state = AuthState(error: '認証状態の更新に失敗しました: $e');
+        }
+      },
+      onError: (Object error) {
+        AppLogger.lifecycle('auth: stream error', error: error);
+        state = AuthState(error: '認証ストリームエラー: $error');
+      },
+    );
   }
 
   /// メール+パスワードでサインアップ

@@ -44,11 +44,15 @@ class _RecordingPanelState extends ConsumerState<RecordingPanel>
   }
 
   Future<void> _syncState() async {
-    final service = ref.read(recordingServiceProvider);
-    final isRecording = await service.syncBackgroundState();
-    final currentState = ref.read(recordingNotifierProvider);
-    if (currentState.isRecording != isRecording) {
-      ref.invalidate(recordingNotifierProvider);
+    try {
+      final service = ref.read(recordingServiceProvider);
+      final isRecording = await service.syncBackgroundState();
+      final currentState = ref.read(recordingNotifierProvider);
+      if (currentState.isRecording != isRecording) {
+        ref.invalidate(recordingNotifierProvider);
+      }
+    } catch (e) {
+      debugPrint('RecordingPanel._syncState failed: $e');
     }
   }
 
@@ -170,6 +174,49 @@ class _RecordingPanelState extends ConsumerState<RecordingPanel>
                         : Theme.of(context).colorScheme.onSurface,
                   ),
             ),
+
+            // エラー表示
+            if (recordingState.error != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .errorContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 16,
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onErrorContainer,
+                    ),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        recordingState.error!,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onErrorContainer,
+                            ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             // 最新の文字起こし結果
             if (recordingState.lastTranscript != null) ...[

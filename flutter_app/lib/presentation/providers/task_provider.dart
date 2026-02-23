@@ -76,7 +76,14 @@ class TaskNotifier extends StateNotifier<TaskState> {
 
   /// タスクステータス更新（遷移マトリックスチェック付き）
   Future<void> updateTaskStatus(String taskId, String newStatus) async {
-    final task = state.tasks.firstWhere((t) => t.id == taskId);
+    final index = state.tasks.indexWhere((t) => t.id == taskId);
+    if (index == -1) {
+      state = state.copyWith(
+        error: 'タスクが見つかりません: $taskId',
+      );
+      return;
+    }
+    final task = state.tasks[index];
 
     // ステータス遷移チェック
     if (!TaskModel.canTransition(task.status, newStatus)) {

@@ -45,13 +45,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _loadCounts() async {
-    final queueService = ref.read(offlineQueueServiceProvider);
-    final pending = await queueService.pendingCount();
-    final deadLetter = await queueService.deadLetterCount();
-    setState(() {
-      _pendingCount = pending;
-      _deadLetterCount = deadLetter;
-    });
+    try {
+      final queueService = ref.read(offlineQueueServiceProvider);
+      final pending = await queueService.pendingCount();
+      final deadLetter = await queueService.deadLetterCount();
+      setState(() {
+        _pendingCount = pending;
+        _deadLetterCount = deadLetter;
+      });
+    } catch (e) {
+      debugPrint('SettingsPage._loadCounts failed: $e');
+    }
   }
 
   Future<void> _clearQueue() async {
@@ -59,18 +63,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       _isLoading = true;
     });
 
-    final queueService = ref.read(offlineQueueServiceProvider);
-    await queueService.clear();
-    await _loadCounts();
+    try {
+      final queueService = ref.read(offlineQueueServiceProvider);
+      await queueService.clear();
+      await _loadCounts();
 
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('キューをクリアしました')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('キューをクリアしました')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('キューのクリアに失敗しました: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -79,18 +93,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       _isRetrying = true;
     });
 
-    final queueService = ref.read(offlineQueueServiceProvider);
-    await queueService.retryDeadLetters();
-    await _loadCounts();
+    try {
+      final queueService = ref.read(offlineQueueServiceProvider);
+      await queueService.retryDeadLetters();
+      await _loadCounts();
 
-    setState(() {
-      _isRetrying = false;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('失敗キューを再試行キューに戻しました')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('失敗キューを再試行キューに戻しました')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('再試行に失敗しました: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRetrying = false;
+        });
+      }
     }
   }
 

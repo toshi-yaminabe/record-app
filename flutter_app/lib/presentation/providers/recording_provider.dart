@@ -188,6 +188,7 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
       }
     } catch (e) {
       AppLogger.recording('Failed to restore recording state', error: e);
+      state = state.copyWith(error: '録音状態の復元に失敗しました: $e');
     }
   }
 
@@ -236,7 +237,9 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
         AppLogger.recording('RecordingStopped');
         _stopElapsedTimer();
         _clearRecordingPrefs();
-        _ref.read(sessionNotifierProvider.notifier).completeSession();
+        _ref.read(sessionNotifierProvider.notifier).completeSession().catchError((Object e) {
+          AppLogger.recording('completeSession failed', error: e);
+        });
         state = state.copyWith(
           isRecording: false,
           elapsed: Duration.zero,

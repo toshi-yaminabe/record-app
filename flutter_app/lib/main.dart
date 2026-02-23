@@ -257,19 +257,39 @@ class MyApp extends ConsumerWidget {
     final authState = ref.watch(authNotifierProvider);
     final transcribeMode = ref.watch(transcribeModeProvider);
 
+    // Navigator状態に基づくKeyで、home変更時にMaterialAppを強制再構築する。
+    // MaterialAppのhomeパラメータ変更だけではNavigatorスタックが更新されない
+    // Flutterの既知挙動を回避するため、状態ごとに異なるKeyを割り当てる。
+    //
+    // 注意: 認証中(isLoading)のsplash↔loginの遷移でKeyを変えると、
+    // LoginPageが再構築されてフォーム入力値が消える。
+    // そのため未認証状態は同一Keyにまとめ、splash/loginはhomeプロパティで切り替える。
+    final String navKey;
+    if (authState.isAuthenticated) {
+      navKey = transcribeMode == null ? 'mode_select' : 'home';
+    } else {
+      navKey = 'unauthenticated';
+    }
+
+    // 初回認証チェック中のみスプラッシュ表示
+    // (signIn/signUp中のisLoadingではLoginPageを維持)
+    final bool isInitialLoading =
+        authState.isLoading && authState.error == null && !authState.isAuthenticated;
+
     return MaterialApp(
+      key: ValueKey(navKey),
       title: '録音アプリ',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: authState.isLoading
-          ? const _SplashScreen()
-          : authState.isAuthenticated
-              ? transcribeMode == null
-                  ? const TranscribeModeSelectionPage()
-                  : const HomePage()
+      home: authState.isAuthenticated
+          ? transcribeMode == null
+              ? const TranscribeModeSelectionPage()
+              : const HomePage()
+          : isInitialLoading
+              ? const _SplashScreen()
               : const LoginPage(),
     );
   }
@@ -355,8 +375,38 @@ class InitializationErrorApp extends StatelessWidget {
                   style: const TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 16),
+                Builder(
+                  builder: (ctx) => FilledButton.icon(
+                    onPressed: () {
+                      // 初期化を再試行
+                      runZonedGuarded(
+                        () async {
+                          try {
+                            await _initializeAndRunApp();
+                          } catch (e, st) {
+                            try {
+                              AppLogger.lifecycle(
+                                  'FATAL: retry failed: $e\n$st');
+                            } catch (_) {}
+                            runApp(
+                                InitializationErrorApp(error: e.toString()));
+                          }
+                        },
+                        (error, stackTrace) {
+                          try {
+                            AppLogger.lifecycle(
+                                'Uncaught zone error: $error\n$stackTrace');
+                          } catch (_) {}
+                        },
+                      );
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('リトライ'),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 const Text(
-                  'アプリを再起動してください。\n問題が解決しない場合は開発者にお問い合わせください。',
+                  '問題が解決しない場合は開発者にお問い合わせください。',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
