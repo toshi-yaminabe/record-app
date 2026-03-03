@@ -47,75 +47,65 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _loadCounts() async {
     try {
       final queueService = ref.read(offlineQueueServiceProvider);
-      final pending = await queueService.pendingCount();
-      final deadLetter = await queueService.deadLetterCount();
+      final results = await Future.wait([
+        queueService.pendingCount(),
+        queueService.deadLetterCount(),
+      ]);
       setState(() {
-        _pendingCount = pending;
-        _deadLetterCount = deadLetter;
+        _pendingCount = results[0];
+        _deadLetterCount = results[1];
       });
     } catch (e) {
       debugPrint('SettingsPage._loadCounts failed: $e');
     }
   }
 
-  Future<void> _clearQueue() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+  /// 非同期操作を実行し、成功/失敗をSnackBarで通知するヘルパー。
+  Future<void> _executeWithFeedback({
+    required Future<void> Function() action,
+    required String successMessage,
+    required String errorPrefix,
+    required ValueGetter<bool> getLoading,
+    required ValueSetter<bool> setLoading,
+  }) async {
+    setLoading(true);
     try {
-      final queueService = ref.read(offlineQueueServiceProvider);
-      await queueService.clear();
+      await action();
       await _loadCounts();
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('キューをクリアしました')),
+          SnackBar(content: Text(successMessage)),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('キューのクリアに失敗しました: $e')),
+          SnackBar(content: Text('$errorPrefix: $e')),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setLoading(false);
     }
   }
 
+  Future<void> _clearQueue() async {
+    await _executeWithFeedback(
+      action: () => ref.read(offlineQueueServiceProvider).clear(),
+      successMessage: 'キューをクリアしました',
+      errorPrefix: 'キューのクリアに失敗しました',
+      getLoading: () => _isLoading,
+      setLoading: (v) => setState(() => _isLoading = v),
+    );
+  }
+
   Future<void> _retryDeadLetters() async {
-    setState(() {
-      _isRetrying = true;
-    });
-
-    try {
-      final queueService = ref.read(offlineQueueServiceProvider);
-      await queueService.retryDeadLetters();
-      await _loadCounts();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('失敗キューを再試行キューに戻しました')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('再試行に失敗しました: $e')),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isRetrying = false;
-        });
-      }
-    }
+    await _executeWithFeedback(
+      action: () => ref.read(offlineQueueServiceProvider).retryDeadLetters(),
+      successMessage: '失敗キューを再試行キューに戻しました',
+      errorPrefix: '再試行に失敗しました',
+      getLoading: () => _isRetrying,
+      setLoading: (v) => setState(() => _isRetrying = v),
+    );
   }
 
   Future<void> _showDebugLog() async {

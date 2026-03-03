@@ -49,7 +49,9 @@ class _RecordingPanelState extends ConsumerState<RecordingPanel>
       final isRecording = await service.syncBackgroundState();
       final currentState = ref.read(recordingNotifierProvider);
       if (currentState.isRecording != isRecording) {
-        ref.invalidate(recordingNotifierProvider);
+        // invalidate()は全依存プロバイダーをカスケード再構築するため、
+        // 対象フィールドのみ直接更新して不要なリビルドを回避する。
+        ref.read(recordingNotifierProvider.notifier).syncRecordingFlag(isRecording);
       }
     } catch (e) {
       debugPrint('RecordingPanel._syncState failed: $e');

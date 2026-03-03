@@ -192,6 +192,12 @@ class RecordingNotifier extends StateNotifier<RecordingState> {
     }
   }
 
+  /// バックグラウンド録音状態をUI状態に同期する。
+  /// ref.invalidate()によるカスケードリビルドを避けるための軽量更新。
+  void syncRecordingFlag(bool isRecording) {
+    state = state.copyWith(isRecording: isRecording);
+  }
+
   /// 録音開始時にSharedPreferencesへ保存
   Future<void> _saveRecordingPrefs({
     required String sessionId,

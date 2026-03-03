@@ -9,13 +9,19 @@ import '../../core/transcribe_mode.dart';
 const _modePreferenceKey = 'transcribe_mode';
 
 class TranscribeModeNotifier extends StateNotifier<TranscribeMode?> {
+  SharedPreferences? _prefs;
+
   TranscribeModeNotifier() : super(null) {
-    _load();
+    _initAndLoad();
   }
 
-  Future<void> _load() async {
+  Future<SharedPreferences> _getPrefs() async {
+    return _prefs ??= await SharedPreferences.getInstance();
+  }
+
+  Future<void> _initAndLoad() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       final raw = prefs.getString(_modePreferenceKey);
       if (raw == null) {
         state = null;
@@ -41,7 +47,7 @@ class TranscribeModeNotifier extends StateNotifier<TranscribeMode?> {
 
     // 永続化は非同期で試行（失敗しても画面遷移には影響しない）
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.setString(_modePreferenceKey, mode.name);
     } catch (e) {
       AppLogger.lifecycle('WARNING: transcribe mode persistence failed: $e');
@@ -52,7 +58,7 @@ class TranscribeModeNotifier extends StateNotifier<TranscribeMode?> {
   Future<void> clearMode() async {
     state = null;
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await _getPrefs();
       await prefs.remove(_modePreferenceKey);
     } catch (e) {
       AppLogger.lifecycle('WARNING: transcribe mode clear failed: $e');
