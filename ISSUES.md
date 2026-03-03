@@ -2,7 +2,7 @@
 
 > 詳細・対応履歴は全て [GitHub Issues](https://github.com/toshi-yaminabe/record-app/issues) で管理。
 > このファイルはアクティブな課題の参照用サマリー。完了したら削除する。
-> **最終更新:** 2026-02-20（全Issue解消確認 v2.0.0-beta.13時点）
+> **最終更新:** 2026-03-04
 
 ---
 
@@ -22,13 +22,8 @@
 
 ---
 
-## HIGH
+## オープンIssueなし
 
-- **#63** セグメント→分人自動割当 — RuleTree評価エンジン未実装。STT完了後にセグメントへのbunjinId自動セットが必要
-- **#64** sessionId整合性 — Flutter UUID vs サーバー生成ID の不一致。`transcribe-service.js` がFlutter送信sessionIdを無視
+全Issueクローズ済み (2026-03-04時点)。
 
-## MEDIUM
-
-- **#65** Flutterオフラインキュー一意制約 — `pending_transcribes` に `(session_id, segment_no)` UNIQUE制約なし、重複蓄積リスク
-
-<!-- sync: 2026-02-20T12:00:00Z -->
+<!-- sync: 2026-03-04T00:00:00Z -->
