@@ -1,7 +1,7 @@
 # record-app ナレッジ資料
 
-**最終更新:** 2026-02-20
-**バージョン:** Web v2.0.0-beta.13 (package.json) / Flutter v2.0.0-beta.13+14 (pubspec.yaml)
+**最終更新:** 2026-03-05
+**バージョン:** Web v2.0.0-beta.18 (package.json) / Flutter v2.0.0-beta.18+18 (pubspec.yaml)
 
 ---
 

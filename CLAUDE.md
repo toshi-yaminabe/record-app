@@ -16,7 +16,7 @@ record-app/
 ├── KNOWLEDGE.md              ← 詳細ナレッジ（DB設計、API仕様、フロー図、ER図）
 ├── ISSUES.md                 ← 課題管理（CRITICAL〜LOWの起票・完了追跡）
 ├── .env.example              ← 環境変数テンプレート
-├── package.json              ← v2.0.0-beta.16, dependencies一覧
+├── package.json              ← v2.0.0-beta.18, dependencies一覧
 ├── next.config.mjs           ← Next.js設定（ESM, bodySizeLimit: 10mb）
 ├── vercel.json               ← Vercel関数タイムアウト（transcribe/proposals: 60s）
 ├── jsconfig.json             ← パスエイリアス設定
@@ -142,6 +142,8 @@ record-app/
 Flutter側: `API_BASE_URL` をビルド時に `--dart-define` で注入。
 
 **認証フロー**: Web UI は Supabase Auth (メール+パスワード) でログイン。JWT は `use-api.js` フックで全API呼び出しに自動付与。サーバー側 `lib/middleware.js` が JWT を検証し userId を取得。開発環境では `DEV_AUTH_BYPASS=true` でモックユーザーにフォールバック。
+
+**レートリミット**: `lib/rate-limit.js` はUpstash Redis経由。Upstash未設定時は警告ログのみでスキップ（本番でもthrowしない）。
 
 ---
 
